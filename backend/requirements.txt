@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+motor
+sqlalchemy
+psycopg2-binary
+openai
