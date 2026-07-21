@@ -1,15 +1,11 @@
-﻿import { useNavigate } from 'react-router-dom'
+﻿import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
 import EvidenceCard from '../components/EvidenceCard'
 import ActionButton from '../components/ActionButton'
-
-const mockTimeline = [
-  { label: 'Check Email Logs', status: 'done' as const },
-  { label: 'Check Auth Logs', status: 'current' as const },
-  { label: 'Decision Pending', status: 'pending' as const },
-]
+import { useSimulationStore } from '../hooks/useSimulation'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -20,33 +16,50 @@ const mockLogs = [
 
 export default function SimulationPage() {
   const navigate = useNavigate()
+  const { incident, timeline, evidence, startSimulation, investigateEvidence } = useSimulationStore()
+
+  useEffect(() => {
+    if (!incident) {
+      startSimulation()
+    }
+  }, [incident, startSimulation])
+
+  if (!incident) {
+    return <div className="min-h-screen bg-bg-primary text-text-primary p-8">Loading...</div>
+  }
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary">
-      <SOCHeader incidentId="SF-2026-0142" severity="medium" />
+      <SOCHeader incidentId={incident.incidentId} severity={incident.severity} />
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">
         <div className="md:col-span-2 space-y-4">
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Alert</h2>
-            <p className="text-sm">Unusual login activity detected</p>
+            <p className="text-sm">{incident.alertMessage}</p>
           </div>
 
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Event Timeline</h2>
-            <EventTimeline steps={mockTimeline} />
+            <EventTimeline steps={timeline} />
           </div>
 
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Evidence</h2>
             <div className="space-y-2">
-              <EvidenceCard
-                icon="📧"
-                title="Email Logs"
-                description="Phishing email from suspicious@phishing.site"
-                revealedAtStep={1}
-                timestamp="2026-01-15 10:30"
-              />
+              {evidence.length === 0 && (
+                <p className="text-xs text-text-secondary">No evidence revealed yet. Investigate to find clues.</p>
+              )}
+              {evidence.map((item) => (
+                <EvidenceCard
+                  key={item.id}
+                  icon={item.icon}
+                  title={item.title}
+                  description={item.description}
+                  revealedAtStep={item.revealedAtStep}
+                  timestamp={item.timestamp}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -60,10 +73,10 @@ export default function SimulationPage() {
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Actions</h2>
             <div className="flex flex-wrap gap-2">
-              <ActionButton label="Check Email Logs" />
-              <ActionButton label="Check Auth Logs" />
-              <ActionButton label="Reset Password + MFA" />
-              <ActionButton label="Isolate Device" variant="danger" />
+              <ActionButton label="Check Email Logs" onClick={() => investigateEvidence('Check Email Logs')} />
+              <ActionButton label="Check Auth Logs" onClick={() => investigateEvidence('Check Auth Logs')} />
+              <ActionButton label="Reset Password + MFA" onClick={() => investigateEvidence('Reset Password + MFA')} />
+              <ActionButton label="Isolate Device" variant="danger" onClick={() => investigateEvidence('Isolate Device')} />
             </div>
           </div>
 

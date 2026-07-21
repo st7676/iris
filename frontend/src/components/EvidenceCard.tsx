@@ -8,7 +8,7 @@
 
 export default function EvidenceCard({ icon, title, description, revealedAtStep, timestamp }: EvidenceCardProps) {
   return (
-    <div className="bg-bg-secondary border border-border-default border-l-4 border-l-accent-warning rounded p-4 hover:border-border-highlight transition-all">
+    <div className="bg-bg-secondary border border-border-default border-l-4 border-l-accent-warning rounded p-4 hover:border-border-highlight transition-all animate-[cardReveal_0.5s_ease-out]">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">{icon}</span>
         <span className="font-bold text-text-primary flex-1">{title}</span>
