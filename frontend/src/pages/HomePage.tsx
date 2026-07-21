@@ -22,7 +22,10 @@ export default function HomePage() {
           >
             Start New Simulation
           </button>
-          <button className="w-full border border-border-default text-text-secondary py-2 px-4 uppercase tracking-wide text-sm hover:border-border-highlight transition-all">
+          <button
+            onClick={() => navigate('/history')}
+            className="w-full border border-border-default text-text-secondary py-2 px-4 uppercase tracking-wide text-sm hover:border-border-highlight transition-all"
+          >
             My History
           </button>
         </div>

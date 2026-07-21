@@ -2,6 +2,7 @@
 import HomePage from './pages/HomePage'
 import SimulationPage from './pages/SimulationPage'
 import ReportPage from './pages/ReportPage'
+import HistoryPage from './pages/HistoryPage'
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/simulation" element={<SimulationPage />} />
       <Route path="/report" element={<ReportPage />} />
+      <Route path="/history" element={<HistoryPage />} />
     </Routes>
   )
 }
