@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 pydantic-settings
+email-validator
 motor
 sqlalchemy
 psycopg2-binary
