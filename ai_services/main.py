@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 from agents.ai_commander import AICommander
 from agents.ai_evaluator import AIEvaluator
@@ -11,21 +12,38 @@ mentor = AIMentor()
 evaluator = AIEvaluator()
 
 
+class CommanderUpdateRequest(BaseModel):
+    incident_context: dict
+    last_action: str
+
+
+class MentorHintRequest(BaseModel):
+    user_question: str
+    incident_context: dict
+    action_history: list
+
+
+class EvaluatorRequest(BaseModel):
+    ideal_chain: list
+    actual_chain: list
+    final_severity: str
+
+
 @app.post("/api/ai/commander-update")
-async def commander_update(incident_context: dict, last_action: str):
-    update = commander.generate_update(incident_context, last_action)
+async def commander_update(req: CommanderUpdateRequest):
+    update = commander.generate_update(req.incident_context, req.last_action)
     return {"update": update}
 
 
 @app.post("/api/ai/mentor-hint")
-async def mentor_hint(user_question: str, incident_context: dict, action_history: list):
-    hint = mentor.provide_hint(user_question, incident_context, action_history)
+async def mentor_hint(req: MentorHintRequest):
+    hint = mentor.provide_hint(req.user_question, req.incident_context, req.action_history)
     return {"hint": hint}
 
 
 @app.post("/api/ai/evaluator-evaluate")
-async def evaluator_evaluate(ideal_chain: list, actual_chain: list, final_severity: str):
-    result = evaluator.evaluate(ideal_chain, actual_chain, final_severity)
+async def evaluator_evaluate(req: EvaluatorRequest):
+    result = evaluator.evaluate(req.ideal_chain, req.actual_chain, req.final_severity)
     return result
 
 
