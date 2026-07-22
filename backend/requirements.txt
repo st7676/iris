@@ -7,3 +7,6 @@ motor
 sqlalchemy
 psycopg2-binary
 openai
+pytest
+httpx
+mongomock_motor
