@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.db.mongodb import incidents_collection
 from app.models.incident import DecideRequest, IncidentResponse, InvestigateRequest
+from app.simulation.branching_logic import apply_investigation_branch
 from app.simulation.engine import record_decision, record_investigation
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
@@ -23,14 +24,21 @@ async def get_incident(incident_id: str) -> dict:
 
 @router.post("/{incident_id}/investigate", response_model=IncidentResponse)
 async def investigate_incident(incident_id: str, payload: InvestigateRequest) -> dict:
-    await _get_incident_or_404(incident_id)
+    incident = await _get_incident_or_404(incident_id)
 
     evidence, action_entry = record_investigation(payload.evidence_type)
+    new_severity = apply_investigation_branch(
+        evidence_type=payload.evidence_type,
+        current_severity=incident["severity"],
+        incident_created_at=incident["created_at"],
+        checked_at=evidence["revealed_at"],
+    )
+
     await incidents_collection.update_one(
         {"incident_id": incident_id},
         {
             "$push": {"evidence_revealed": evidence, "action_log": action_entry},
-            "$set": {"updated_at": evidence["revealed_at"]},
+            "$set": {"severity": new_severity, "updated_at": evidence["revealed_at"]},
         },
     )
     return await _get_incident_or_404(incident_id)

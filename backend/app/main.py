@@ -1,7 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from app.api.routes import incidents, scenarios, users
 from app.db.init_db import init_db
+from app.db.mongodb import incidents_collection
+from app.simulation.engine import build_ai_commander_update
 
 app = FastAPI(title="Iris Backend API")
 
@@ -18,3 +20,19 @@ async def on_startup() -> None:
 @app.get("/")
 def read_root():
     return {"status": "success", "message": "Iris Backend is running successfully!"}
+
+
+@app.websocket("/ws/incidents/{incident_id}")
+async def incident_websocket(websocket: WebSocket, incident_id: str) -> None:
+    incident = await incidents_collection.find_one({"incident_id": incident_id})
+    if not incident:
+        await websocket.close(code=4404)
+        return
+
+    await websocket.accept()
+    try:
+        while True:
+            await websocket.receive_text()
+            await websocket.send_json(build_ai_commander_update())
+    except WebSocketDisconnect:
+        pass

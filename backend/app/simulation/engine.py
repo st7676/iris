@@ -49,3 +49,11 @@ def record_decision(decision: str, notes: Optional[str] = None) -> tuple[dict, s
     }
     new_state = f"decision:{decision}"
     return action_entry, new_state
+
+
+def build_ai_commander_update() -> dict:
+    return {
+        "type": "event_update",
+        "message": "New login attempt detected...",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
