@@ -43,13 +43,16 @@ def mongo_db(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_ai_bridge(monkeypatch):
+def mock_ai_bridge(request, monkeypatch):
     """
     Stub out the real OpenAI-backed agents for the default test suite, so
     tests run fast, deterministically, and without needing a real
-    OPENAI_API_KEY. Live wiring is verified separately (see README) by
-    running the server and calling the endpoints for real.
+    OPENAI_API_KEY. Tests marked `@pytest.mark.live` opt out and hit the
+    real OpenAI API (see test_live_e2e.py).
     """
+    if request.node.get_closest_marker("live"):
+        return
+
     from app.core import ai_bridge
 
     monkeypatch.setattr(
