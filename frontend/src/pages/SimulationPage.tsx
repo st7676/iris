@@ -6,6 +6,7 @@ import LogViewer from '../components/LogViewer'
 import EvidenceCard from '../components/EvidenceCard'
 import ActionButton from '../components/ActionButton'
 import Toast from '../components/common/Toast'
+import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
 
 const mockLogs = [
@@ -45,7 +46,11 @@ export default function SimulationPage() {
   }
 
   if (!incident) {
-    return <div className="min-h-screen bg-bg-primary text-text-primary p-8">Loading...</div>
+    return (
+      <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
+        <Spinner label="Loading incident..." />
+      </div>
+    )
   }
 
   return (
