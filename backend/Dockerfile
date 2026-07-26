@@ -10,11 +10,20 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# העתקת קובץ הדרישות והתקנת הספריות
-COPY requirements.txt .
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
-# העתקת כל שאר קודי ה-Backend לתוך תיקיית העבודה
-COPY . .
+# הערה: ה-build context עבר ל-repo root (ראו docker-compose.yml) כדי
+# שנוכל להעתיק גם את ai_services/ -- ה-Backend מייבא ממנו ישירות
+# (app/core/ai_bridge.py), אז הוא חייב להיות זמין בתוך האימג'.
+
+# התקנת דרישות משני הפרויקטים
+COPY backend/requirements.txt ./requirements.txt
+COPY ai_services/requirements.txt ./ai_services-requirements.txt
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org \
+    -r requirements.txt -r ai_services-requirements.txt
+
+# העתקת קוד ה-Backend ותיקיית ai_services (בנתיב קבוע, שה-ai_bridge יודע למצוא)
+COPY backend/ .
+COPY ai_services/ /ai_services
+ENV AI_SERVICES_PATH=/ai_services
 
 # חשיפת הפורט שבו ירוץ השרת
 EXPOSE 8000

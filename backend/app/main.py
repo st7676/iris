@@ -32,7 +32,8 @@ async def incident_websocket(websocket: WebSocket, incident_id: str) -> None:
     await websocket.accept()
     try:
         while True:
-            await websocket.receive_text()
-            await websocket.send_json(build_ai_commander_update())
+            last_action = await websocket.receive_text()
+            current = await incidents_collection.find_one({"incident_id": incident_id})
+            await websocket.send_json(build_ai_commander_update(current, last_action))
     except WebSocketDisconnect:
         pass

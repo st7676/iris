@@ -1,6 +1,12 @@
 import os
 import sys
 
+# Windows consoles often default to a non-UTF8 codepage (cp1252), which
+# raises UnicodeEncodeError on emoji/non-ASCII model output. Force UTF-8
+# for stdout so responses print correctly regardless of the host console.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # משיגים את הנתיב המלא של התיקייה הנוכחית שבה הקובץ הזה נמצא
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # דוחפים אותה בכוח לראש רשימת הנתיבים של פייתון
