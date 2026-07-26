@@ -54,7 +54,7 @@ export default function SimulationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary">
+    <div className="page min-h-screen bg-bg-primary text-text-primary">
       <SOCHeader incidentId={incident.incidentId} severity={incident.severity} />
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">

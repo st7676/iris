@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useSimulationStore } from './useSimulation'
+import { WS_BASE } from '../lib/constants'
 
 export function useWebSocket(incidentId: string) {
   useEffect(() => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/incidents/${incidentId}`)
+    const ws = new WebSocket(`${WS_BASE}/incidents/${incidentId}`)
 
     ws.onmessage = (event) => {
       const update = JSON.parse(event.data)

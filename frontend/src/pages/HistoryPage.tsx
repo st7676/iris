@@ -16,7 +16,7 @@ export default function HistoryPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary p-6 max-w-3xl mx-auto space-y-6">
+    <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg uppercase tracking-widest text-accent-success font-bold">
           Simulation History

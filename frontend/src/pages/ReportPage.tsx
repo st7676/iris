@@ -1,5 +1,7 @@
-﻿import Scoreboard from '../components/Scoreboard'
+﻿import { useNavigate } from 'react-router-dom'
+import Scoreboard from '../components/Scoreboard'
 import PostMortemComparison from '../components/PostMortemComparison'
+import { useSimulationStore } from '../hooks/useSimulation'
 
 const mockReport = {
   finalScore: 89,
@@ -18,8 +20,16 @@ const mockReport = {
 }
 
 export default function ReportPage() {
+  const navigate = useNavigate()
+  const startSimulation = useSimulationStore((state) => state.startSimulation)
+
+  const handleNextSimulation = () => {
+    startSimulation()
+    navigate('/simulation')
+  }
+
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary p-6 max-w-4xl mx-auto space-y-6">
+    <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-4xl mx-auto space-y-6">
       <Scoreboard
         finalScore={mockReport.finalScore}
         breakdown={[
@@ -37,10 +47,16 @@ export default function ReportPage() {
       </div>
 
       <div className="flex justify-center gap-3">
-        <button className="border border-accent-success text-accent-success px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-success/10 transition-all">
+        <button
+          onClick={handleNextSimulation}
+          className="border border-accent-success text-accent-success px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-success/10 transition-all"
+        >
           Next Simulation
         </button>
-        <button className="border border-border-default text-text-secondary px-4 py-2 text-xs uppercase tracking-wide hover:border-border-highlight transition-all">
+        <button
+          onClick={() => navigate('/')}
+          className="border border-border-default text-text-secondary px-4 py-2 text-xs uppercase tracking-wide hover:border-border-highlight transition-all"
+        >
           Home
         </button>
       </div>

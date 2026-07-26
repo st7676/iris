@@ -4,7 +4,7 @@ export default function HomePage() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-primary">
+    <div className="page min-h-screen flex items-center justify-center bg-bg-primary">
       <div className="w-full max-w-md border border-border-default rounded-md p-8 text-center space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-widest text-accent-success">
