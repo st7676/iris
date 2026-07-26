@@ -17,7 +17,8 @@ const mockLogs = [
 
 export default function SimulationPage() {
   const navigate = useNavigate()
-  const { incident, timeline, evidence, startSimulation, investigateEvidence } = useSimulationStore()
+  const { incident, timeline, evidence, startSimulation, investigateEvidence, decide, completeSimulation } =
+    useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   useEffect(() => {
@@ -26,10 +27,21 @@ export default function SimulationPage() {
     }
   }, [incident, startSimulation])
 
-  const handleAction = (label: string) => {
+  const handleInvestigate = (label: string) => {
     investigateEvidence(label)
     setToastMessage(`${label}: investigation complete`)
     setTimeout(() => setToastMessage(null), 3000)
+  }
+
+  const handleDecide = (label: string) => {
+    decide(label)
+    setToastMessage(`${label}: action taken`)
+    setTimeout(() => setToastMessage(null), 3000)
+  }
+
+  const handleComplete = () => {
+    completeSimulation()
+    navigate('/report')
   }
 
   if (!incident) {
@@ -81,15 +93,15 @@ export default function SimulationPage() {
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Actions</h2>
             <div className="flex flex-wrap gap-2">
-              <ActionButton label="Check Email Logs" onClick={() => handleAction('Check Email Logs')} />
-              <ActionButton label="Check Auth Logs" onClick={() => handleAction('Check Auth Logs')} />
-              <ActionButton label="Reset Password + MFA" onClick={() => handleAction('Reset Password + MFA')} />
-              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleAction('Isolate Device')} />
+              <ActionButton label="Check Email Logs" onClick={() => handleInvestigate('Check Email Logs')} />
+              <ActionButton label="Check Auth Logs" onClick={() => handleInvestigate('Check Auth Logs')} />
+              <ActionButton label="Reset Password + MFA" onClick={() => handleDecide('Reset Password + MFA')} />
+              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleDecide('Isolate Device')} />
             </div>
           </div>
 
           <div className="border border-border-default rounded p-4 text-right">
-            <ActionButton label="Complete Simulation" onClick={() => navigate('/report')} />
+            <ActionButton label="Complete Simulation" onClick={handleComplete} />
           </div>
         </div>
       </div>
