@@ -1,10 +1,11 @@
-﻿import { useEffect } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
 import EvidenceCard from '../components/EvidenceCard'
 import ActionButton from '../components/ActionButton'
+import Toast from '../components/common/Toast'
 import { useSimulationStore } from '../hooks/useSimulation'
 
 const mockLogs = [
@@ -17,12 +18,19 @@ const mockLogs = [
 export default function SimulationPage() {
   const navigate = useNavigate()
   const { incident, timeline, evidence, startSimulation, investigateEvidence } = useSimulationStore()
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!incident) {
       startSimulation()
     }
   }, [incident, startSimulation])
+
+  const handleAction = (label: string) => {
+    investigateEvidence(label)
+    setToastMessage(`${label}: investigation complete`)
+    setTimeout(() => setToastMessage(null), 3000)
+  }
 
   if (!incident) {
     return <div className="min-h-screen bg-bg-primary text-text-primary p-8">Loading...</div>
@@ -73,10 +81,10 @@ export default function SimulationPage() {
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Actions</h2>
             <div className="flex flex-wrap gap-2">
-              <ActionButton label="Check Email Logs" onClick={() => investigateEvidence('Check Email Logs')} />
-              <ActionButton label="Check Auth Logs" onClick={() => investigateEvidence('Check Auth Logs')} />
-              <ActionButton label="Reset Password + MFA" onClick={() => investigateEvidence('Reset Password + MFA')} />
-              <ActionButton label="Isolate Device" variant="danger" onClick={() => investigateEvidence('Isolate Device')} />
+              <ActionButton label="Check Email Logs" onClick={() => handleAction('Check Email Logs')} />
+              <ActionButton label="Check Auth Logs" onClick={() => handleAction('Check Auth Logs')} />
+              <ActionButton label="Reset Password + MFA" onClick={() => handleAction('Reset Password + MFA')} />
+              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleAction('Isolate Device')} />
             </div>
           </div>
 
@@ -85,6 +93,8 @@ export default function SimulationPage() {
           </div>
         </div>
       </div>
+
+      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
     </div>
   )
 }
