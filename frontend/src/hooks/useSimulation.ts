@@ -55,18 +55,29 @@ const evidenceLibrary: Record<string, Evidence> = {
   },
 }
 
+interface ActionLogEntry {
+  label: string
+  type: 'investigate' | 'decide'
+}
+
 interface SimulationState {
   incident: Incident | null
   timeline: TimelineStep[]
   evidence: Evidence[]
+  actionLog: ActionLogEntry[]
+  completed: boolean
   startSimulation: () => void
   investigateEvidence: (evidenceType: string) => void
+  decide: (action: string) => void
+  completeSimulation: () => void
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
   incident: null,
   timeline: [],
   evidence: [],
+  actionLog: [],
+  completed: false,
 
   startSimulation: () =>
     set({
@@ -77,6 +88,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       },
       timeline: [{ label: 'Check Email Logs', status: 'current' }],
       evidence: [],
+      actionLog: [],
+      completed: false,
     }),
 
   investigateEvidence: (evidenceType: string) =>
@@ -95,6 +108,29 @@ export const useSimulationStore = create<SimulationState>((set) => ({
           : [...updatedTimeline, { label: evidenceType, status: 'current' as const }],
         evidence:
           newEvidence && !alreadyRevealed ? [...state.evidence, newEvidence] : state.evidence,
+        actionLog: [...state.actionLog, { label: evidenceType, type: 'investigate' }],
       }
     }),
+
+  decide: (action: string) =>
+    set((state) => {
+      const alreadyInTimeline = state.timeline.some((step) => step.label === action)
+      const newEvidence = evidenceLibrary[action]
+      const alreadyRevealed = state.evidence.some((e) => e.id === newEvidence?.id)
+
+      const updatedTimeline = state.timeline.map((step) =>
+        step.status === 'current' ? { ...step, status: 'done' as const } : step
+      )
+
+      return {
+        timeline: alreadyInTimeline
+          ? updatedTimeline
+          : [...updatedTimeline, { label: action, status: 'current' as const }],
+        evidence:
+          newEvidence && !alreadyRevealed ? [...state.evidence, newEvidence] : state.evidence,
+        actionLog: [...state.actionLog, { label: action, type: 'decide' as const }],
+      }
+    }),
+
+  completeSimulation: () => set({ completed: true }),
 }))
