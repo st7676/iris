@@ -28,19 +28,19 @@ export default function SimulationPage() {
     }
   }, [incident, startSimulation])
 
-  const handleInvestigate = (label: string) => {
-    investigateEvidence(label)
+  const handleInvestigate = async (label: string) => {
+    await investigateEvidence(label)
     setToastMessage(`${label}: investigation complete`)
     setTimeout(() => setToastMessage(null), 3000)
   }
 
-  const handleDecide = (label: string) => {
-    decide(label)
+  const handleDecide = async (label: string) => {
+    await decide(label)
     setToastMessage(`${label}: action taken`)
     setTimeout(() => setToastMessage(null), 3000)
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     completeSimulation()
     navigate('/report')
   }
