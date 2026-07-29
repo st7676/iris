@@ -150,44 +150,6 @@ class DecideRequest(BaseModel):
     )
 
 
-class HintRequest(BaseModel):
-    user_question: str
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {"user_question": "What should I check first?"}
-        }
-    )
-
-
-class HintResponse(BaseModel):
-    hint: str
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "hint": "Consider checking the authentication logs before assessing the damage."
-            }
-        }
-    )
-
-
-class CompleteResponse(BaseModel):
-    incident_id: str
-    status: IncidentStatus
-    score: int
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "incident_id": "SF-2026-0142",
-                "status": "completed",
-                "score": 89,
-            }
-        }
-    )
-
-
 class ScoreResponse(BaseModel):
     score: int
     categories: dict

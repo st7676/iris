@@ -101,41 +101,6 @@ def test_decide_updates_state_and_logs_action(client):
     assert response.json()["action_log"][-1]["action"] == "decide"
 
 
-def test_hint_returns_mock_hint(client):
-    incident_id = _start_incident(client)
-    response = client.post(
-        f"/api/incidents/{incident_id}/hint",
-        json={"user_question": "What should I check first?"},
-    )
-    assert response.status_code == 200
-    assert response.json()["hint"]
-
-
-def test_hint_incident_not_found(client):
-    response = client.post(
-        "/api/incidents/DOES-NOT-EXIST/hint", json={"user_question": "help?"}
-    )
-    assert response.status_code == 404
-
-
-def test_complete_returns_score_and_marks_completed(client):
-    incident_id = _start_incident(client)
-    response = client.post(f"/api/incidents/{incident_id}/complete")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["incident_id"] == incident_id
-    assert body["status"] == "completed"
-    assert 75 <= body["score"] <= 95
-
-    incident = client.get(f"/api/incidents/{incident_id}").json()
-    assert incident["status"] == "completed"
-
-
-def test_complete_incident_not_found(client):
-    response = client.post("/api/incidents/DOES-NOT-EXIST/complete")
-    assert response.status_code == 404
-
-
 def test_websocket_event_update(client):
     incident_id = _start_incident(client)
     with client.websocket_connect(f"/ws/incidents/{incident_id}") as ws:

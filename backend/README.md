@@ -85,8 +85,6 @@ Response:
 | GET | `/api/incidents/{incident_id}` | Get the full incident (status, evidence, action log) |
 | POST | `/api/incidents/{incident_id}/investigate` | Investigate a piece of evidence (mock data) |
 | POST | `/api/incidents/{incident_id}/decide` | Record a decision, updates incident state |
-| POST | `/api/incidents/{incident_id}/hint` | Get a hint for a question (mock data, pending AI Mentor integration) |
-| POST | `/api/incidents/{incident_id}/complete` | End the simulation and get a score (mock data, pending AI Evaluator integration) |
 | WS | `/ws/incidents/{incident_id}` | Live event updates for the incident |
 
 ```bash
@@ -97,12 +95,6 @@ curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/investigate \
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/decide \
   -H "Content-Type: application/json" \
   -d '{"decision": "escalate_to_soc_lead", "notes": "Multiple failed logins from an unrecognized location."}'
-
-curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/hint \
-  -H "Content-Type: application/json" \
-  -d '{"user_question": "What should I check first?"}'
-
-curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete
 ```
 
 Checking `auth_logs` within 60 seconds of the incident starting lowers severity by one

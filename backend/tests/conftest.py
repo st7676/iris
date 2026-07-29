@@ -20,7 +20,7 @@ SILENT_LOGIN_SCENARIO = {
 def mongo_db(monkeypatch):
     import app.db.mongodb as mongodb_module
     import app.main as main_module
-    from app.api.routes import ai, incidents, scenarios
+    from app.api.routes import incidents, scenarios
 
     mock_db = AsyncMongoMockClient()["iris_test"]
 
@@ -30,7 +30,6 @@ def mongo_db(monkeypatch):
     monkeypatch.setattr(scenarios, "scenarios_collection", mock_db["scenarios"])
     monkeypatch.setattr(scenarios, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(incidents, "incidents_collection", mock_db["incidents"])
-    monkeypatch.setattr(ai, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(main_module, "incidents_collection", mock_db["incidents"])
 
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))
