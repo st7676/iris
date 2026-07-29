@@ -8,6 +8,7 @@ import ActionButton from '../components/ActionButton'
 import Toast from '../components/common/Toast'
 import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
+import { useWebSocket } from '../hooks/useWebSocket'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -27,6 +28,8 @@ export default function SimulationPage() {
       startSimulation()
     }
   }, [incident, startSimulation])
+
+  useWebSocket(incident?.incidentId || '')
 
   const handleInvestigate = async (label: string) => {
     await investigateEvidence(label)
