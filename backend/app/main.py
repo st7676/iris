@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from app.api.routes import incidents, scenarios, users
+from app.api.routes import ai, incidents, scenarios, users
 from app.db.init_db import init_db
 from app.db.mongodb import incidents_collection
 from app.simulation.engine import build_ai_commander_update
@@ -10,6 +10,7 @@ app = FastAPI(title="Iris Backend API")
 app.include_router(users.router)
 app.include_router(scenarios.router)
 app.include_router(incidents.router)
+app.include_router(ai.router)
 
 
 @app.on_event("startup")

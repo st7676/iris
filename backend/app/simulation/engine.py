@@ -51,6 +51,20 @@ def record_decision(decision: str, notes: Optional[str] = None) -> tuple[dict, s
     return action_entry, new_state
 
 
+_MOCK_HINT = (
+    "Consider checking the authentication logs before assessing the damage "
+    "— confirming how the attacker got in comes first."
+)
+
+
+def generate_mock_hint(user_question: str) -> str:
+    return _MOCK_HINT
+
+
+def generate_mock_score() -> int:
+    return 75 + secrets.randbelow(21)
+
+
 def build_ai_commander_update() -> dict:
     return {
         "type": "event_update",
