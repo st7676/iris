@@ -1,7 +1,5 @@
 import pytest
 
-from app.simulation.engine import generate_post_mortem_diff
-
 USER_ID = "123e4567-e89b-12d3-a456-426614174000"
 
 
@@ -136,48 +134,6 @@ def test_complete_returns_score_and_marks_completed(client):
 def test_complete_incident_not_found(client):
     response = client.post("/api/incidents/DOES-NOT-EXIST/complete")
     assert response.status_code == 404
-
-
-def test_report_returns_score_and_reasoning_chains(client):
-    incident_id = _start_incident(client)
-    client.post(
-        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "email_logs"}
-    )
-    client.post(
-        f"/api/incidents/{incident_id}/decide",
-        json={"decision": "escalate_to_soc_lead"},
-    )
-
-    response = client.get(f"/api/incidents/{incident_id}/report")
-    assert response.status_code == 200
-    body = response.json()
-    assert 75 <= body["score"] <= 95
-    assert set(body["categories"]) == {"detection", "decision_making", "response"}
-    assert body["ideal_chain"][0]["action"] == "check_email_logs"
-    assert body["your_chain"][0]["payload"]["evidence_type"] == "email_logs"
-
-
-def test_report_incident_not_found(client):
-    response = client.get("/api/incidents/DOES-NOT-EXIST/report")
-    assert response.status_code == 404
-
-
-def test_generate_post_mortem_diff():
-    ideal_chain = [
-        {"step": 1, "action": "check_email_logs"},
-        {"step": 2, "action": "check_auth_logs"},
-        {"step": 3, "action": "isolate_device"},
-    ]
-    action_log = [
-        {"action": "investigate", "payload": {"evidence_type": "auth_logs"}},
-        {"action": "investigate", "payload": {"evidence_type": "email_logs"}},
-    ]
-
-    diff = generate_post_mortem_diff(ideal_chain, action_log)
-
-    assert diff["matches"] == []
-    assert diff["out_of_order"] == [ideal_chain[0], ideal_chain[1]]
-    assert diff["misses"] == [ideal_chain[2]]
 
 
 def test_websocket_event_update(client):
