@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+from app.core import ai_bridge
 from app.models.schemas import IncidentStatus, Severity
 from app.simulation.evidence import get_mock_evidence
 
@@ -51,9 +52,37 @@ def record_decision(decision: str, notes: Optional[str] = None) -> tuple[dict, s
     return action_entry, new_state
 
 
-def build_ai_commander_update() -> dict:
+def build_ai_commander_update(incident: dict, last_action: str) -> dict:
+    """Ask AI Commander for the next incident update, given current state."""
+    message = ai_bridge.commander.generate_update(
+        incident_context={
+            "scenario_id": incident.get("scenario_id"),
+            "severity": incident.get("severity"),
+            "alert_message": incident.get("alert_message"),
+        },
+        last_action=last_action,
+    )
     return {
         "type": "event_update",
-        "message": "New login attempt detected...",
+        "message": message,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def build_actual_chain(action_log: list[dict]) -> list[dict]:
+    """
+    Translate the incident's raw action_log (investigate/decide events with
+    their own payload shape) into the {"step", "action"} shape used by
+    scenarios.ideal_reasoning_chain, so AI Evaluator can compare them.
+    """
+    chain: list[dict] = []
+    for entry in action_log:
+        payload = entry.get("payload") or {}
+        if entry.get("action") == "investigate" and "evidence_type" in payload:
+            action_name = f"check_{payload['evidence_type']}"
+        elif entry.get("action") == "decide" and "decision" in payload:
+            action_name = payload["decision"]
+        else:
+            action_name = entry.get("action", "unknown")
+        chain.append({"step": len(chain) + 1, "action": action_name})
+    return chain

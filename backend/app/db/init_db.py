@@ -1,7 +1,12 @@
 import asyncio
+import logging
+
+from sqlalchemy.exc import OperationalError
 
 from app.db.mongodb import scenarios_collection
 from app.db.postgres import Base, ScenarioMetadata, SessionLocal, engine
+
+logger = logging.getLogger("iris.init_db")
 
 SILENT_LOGIN_SCENARIO = {
     "scenario_id": "silent_login_v1",
@@ -60,8 +65,20 @@ async def seed_mongo() -> None:
 
 
 async def init_db() -> None:
-    create_postgres_tables()
-    seed_postgres()
+    # Postgres holds users/session_scores -- not needed for the core AI
+    # simulation flow (incidents/investigate/hint/complete all live in
+    # Mongo). Don't hard-crash the whole app if it's unreachable (e.g.
+    # running locally without Docker, with only Mongo installed) --
+    # just warn loudly so it's obvious Postgres-backed features won't work.
+    try:
+        create_postgres_tables()
+        seed_postgres()
+    except OperationalError:
+        logger.warning(
+            "PostgreSQL is unreachable at startup -- continuing without it. "
+            "Mongo-backed features (incidents, investigate, hint, complete) "
+            "will work; users/session_scores will not until Postgres is available."
+        )
     await seed_mongo()
 
 

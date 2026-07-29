@@ -2,12 +2,16 @@ version: '3.8'
 
 services:
   fastapi:
-    build: .
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://user:pass@db:5432/iris
       - MONGODB_URL=mongodb://mongo:27017/iris
+    env_file:
+      - ../ai_services/.env
     depends_on:
       - db
       - mongo

@@ -155,14 +155,32 @@ class ScoreResponse(BaseModel):
     categories: dict
     ideal_chain: List[dict]
     your_chain: List[dict]
+    feedback: Optional[str] = None
+    strengths: Optional[str] = None
+    improvements: Optional[str] = None
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "score": 89,
-                "categories": {"accuracy": 90, "speed": 85, "thoroughness": 92},
+                "categories": {
+                    "detection_score": 95,
+                    "decision_score": 85,
+                    "response_score": 90,
+                },
                 "ideal_chain": [{"step": 1, "action": "check_email_logs"}],
                 "your_chain": [{"step": 1, "action": "check_auth_logs"}],
+                "feedback": "Strong triage instincts, but the entry vector was confirmed late.",
+                "strengths": "Fast password reset after confirming compromise.",
+                "improvements": "Check email logs before file access next time.",
             }
         }
+    )
+
+
+class HintRequest(BaseModel):
+    user_question: str
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"user_question": "What should I check next?"}}
     )

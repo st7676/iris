@@ -104,9 +104,10 @@ def test_decide_updates_state_and_logs_action(client):
 def test_websocket_event_update(client):
     incident_id = _start_incident(client)
     with client.websocket_connect(f"/ws/incidents/{incident_id}") as ws:
-        ws.send_text("ping")
+        ws.send_text("checked email logs")
         data = ws.receive_json()
         assert data["type"] == "event_update"
+        assert data["message"] == "Mock Commander: new evidence detected."
         assert "timestamp" in data
 
 
@@ -114,3 +115,50 @@ def test_websocket_rejects_unknown_incident(client):
     with pytest.raises(Exception):
         with client.websocket_connect("/ws/incidents/DOES-NOT-EXIST") as ws:
             ws.receive_text()
+
+
+def test_hint_returns_mentor_guidance(client):
+    incident_id = _start_incident(client)
+    response = client.post(
+        f"/api/incidents/{incident_id}/hint",
+        json={"user_question": "What should I check next?"},
+    )
+    assert response.status_code == 200
+    assert response.json()["hint"] == "Mock Mentor: check the auth logs next."
+
+
+def test_hint_incident_not_found(client):
+    response = client.post(
+        "/api/incidents/DOES-NOT-EXIST/hint", json={"user_question": "help"}
+    )
+    assert response.status_code == 404
+
+
+def test_complete_returns_score_and_marks_incident_completed(client):
+    incident_id = _start_incident(client)
+    client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "email_logs"}
+    )
+    client.post(
+        f"/api/incidents/{incident_id}/decide",
+        json={"decision": "escalate_to_soc_lead"},
+    )
+
+    response = client.post(f"/api/incidents/{incident_id}/complete")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["score"] == 75  # mean of mocked 80/70/75
+    assert body["categories"]["detection_score"] == 80
+    assert body["your_chain"] == [
+        {"step": 1, "action": "check_email_logs"},
+        {"step": 2, "action": "escalate_to_soc_lead"},
+    ]
+    assert body["feedback"] == "Mock feedback for testing."
+
+    incident = client.get(f"/api/incidents/{incident_id}").json()
+    assert incident["status"] == "completed"
+
+
+def test_complete_incident_not_found(client):
+    response = client.post("/api/incidents/DOES-NOT-EXIST/complete")
+    assert response.status_code == 404
