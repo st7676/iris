@@ -1,4 +1,4 @@
-﻿import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Scoreboard from '../components/Scoreboard'
 import PostMortemComparison from '../components/PostMortemComparison'
 import { useSimulationStore } from '../hooks/useSimulation'
