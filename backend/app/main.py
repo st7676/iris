@@ -1,9 +1,14 @@
+import logging
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from app.api.routes import incidents, scenarios, users
 from app.db.init_db import init_db
 from app.db.mongodb import incidents_collection
 from app.simulation.engine import build_ai_commander_update
+
+logger = logging.getLogger("iris.websocket")
 
 app = FastAPI(title="Iris Backend API")
 
@@ -34,6 +39,17 @@ async def incident_websocket(websocket: WebSocket, incident_id: str) -> None:
         while True:
             last_action = await websocket.receive_text()
             current = await incidents_collection.find_one({"incident_id": incident_id})
-            await websocket.send_json(build_ai_commander_update(current, last_action))
+            try:
+                update = build_ai_commander_update(current, last_action)
+            except Exception:
+                logger.error(
+                    "AI Commander call failed for incident %s", incident_id, exc_info=True
+                )
+                update = {
+                    "type": "event_update",
+                    "message": "Unable to fetch a live update right now.",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            await websocket.send_json(update)
     except WebSocketDisconnect:
         pass

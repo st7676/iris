@@ -82,14 +82,20 @@ async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
     incident = await _get_incident_or_404(incident_id)
     action_history = [entry["action"] for entry in incident.get("action_log", [])]
 
-    hint = ai_bridge.mentor.provide_hint(
-        user_question=payload.user_question,
-        incident_context={
-            "scenario_id": incident.get("scenario_id"),
-            "severity": incident.get("severity"),
-        },
-        action_history=action_history,
-    )
+    try:
+        hint = ai_bridge.mentor.provide_hint(
+            user_question=payload.user_question,
+            incident_context={
+                "scenario_id": incident.get("scenario_id"),
+                "severity": incident.get("severity"),
+            },
+            action_history=action_history,
+        )
+    except Exception:
+        logger.error("AI Mentor call failed for incident %s", incident_id, exc_info=True)
+        raise HTTPException(
+            status_code=503, detail="AI Mentor is temporarily unavailable, try again shortly"
+        )
     return {"hint": hint}
 
 
@@ -100,11 +106,17 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
     ideal_chain = (scenario or {}).get("ideal_reasoning_chain", [])
     actual_chain = build_actual_chain(incident.get("action_log", []))
 
-    result = ai_bridge.evaluator.evaluate(
-        ideal_chain=ideal_chain,
-        actual_chain=actual_chain,
-        final_severity=incident["severity"],
-    )
+    try:
+        result = ai_bridge.evaluator.evaluate(
+            ideal_chain=ideal_chain,
+            actual_chain=actual_chain,
+            final_severity=incident["severity"],
+        )
+    except Exception:
+        logger.error("AI Evaluator call failed for incident %s", incident_id, exc_info=True)
+        raise HTTPException(
+            status_code=503, detail="AI Evaluator is temporarily unavailable, try again shortly"
+        )
 
     categories = {
         "detection_score": result.get("detection_score", 0),

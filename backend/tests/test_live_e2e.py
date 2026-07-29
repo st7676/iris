@@ -9,15 +9,20 @@ ai_services/.env. Skipped by default (see pytest.ini); run explicitly with:
 
 import pytest
 
-USER_ID = "123e4567-e89b-12d3-a456-426614174000"
-
 pytestmark = pytest.mark.live
 
 
 def test_full_silent_login_flow_live(client):
+    register = client.post(
+        "/api/users/register",
+        json={"username": "live_e2e_user", "email": "live_e2e@example.com", "password": "StrongPassw0rd!"},
+    )
+    assert register.status_code == 201
+    user_id = register.json()["id"]
+
     start = client.post(
         "/api/scenarios/silent_login_v1/start",
-        json={"scenario_id": "silent_login_v1", "user_id": USER_ID},
+        json={"scenario_id": "silent_login_v1", "user_id": user_id},
     )
     assert start.status_code == 201
     incident_id = start.json()["incident_id"]
