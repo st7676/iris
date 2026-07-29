@@ -1,9 +1,15 @@
+import logging
 from datetime import datetime, timezone
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.core import ai_bridge
 from app.db.mongodb import incidents_collection, scenarios_collection
+from app.db.postgres import SessionScore
+from app.deps import get_db
 from app.models.incident import (
     DecideRequest,
     HintRequest,
@@ -13,6 +19,8 @@ from app.models.incident import (
 )
 from app.simulation.branching_logic import apply_investigation_branch
 from app.simulation.engine import build_actual_chain, record_decision, record_investigation
+
+logger = logging.getLogger("iris.incidents")
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 
@@ -86,7 +94,7 @@ async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
 
 
 @router.post("/{incident_id}/complete", response_model=ScoreResponse)
-async def complete_incident(incident_id: str) -> dict:
+async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> dict:
     incident = await _get_incident_or_404(incident_id)
     scenario = await scenarios_collection.find_one({"scenario_id": incident["scenario_id"]})
     ideal_chain = (scenario or {}).get("ideal_reasoning_chain", [])
@@ -119,4 +127,24 @@ async def complete_incident(incident_id: str) -> dict:
         {"incident_id": incident_id},
         {"$set": {"status": "completed", "score": score_doc, "updated_at": datetime.now(timezone.utc)}},
     )
+
+    try:
+        db.add(
+            SessionScore(
+                user_id=UUID(incident["user_id"]),
+                incident_id=incident_id,
+                scenario_id=incident["scenario_id"],
+                score=overall_score,
+            )
+        )
+        db.commit()
+    except SQLAlchemyError:
+        logger.warning(
+            "Could not record session_scores for incident %s (Postgres unreachable, "
+            "or user_id doesn't match a registered user) -- "
+            "/api/users/{user_id}/history will miss it.",
+            incident_id,
+        )
+        db.rollback()
+
     return score_doc
