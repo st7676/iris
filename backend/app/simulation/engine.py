@@ -65,6 +65,43 @@ def generate_mock_score() -> int:
     return 75 + secrets.randbelow(21)
 
 
+def generate_mock_categories() -> dict:
+    return {
+        "detection": generate_mock_score(),
+        "decision_making": generate_mock_score(),
+        "response": generate_mock_score(),
+    }
+
+
+def _normalize_action_name(action_entry: dict) -> str:
+    action = action_entry["action"]
+    payload = action_entry.get("payload") or {}
+    if action == "investigate":
+        return f"check_{payload.get('evidence_type', '')}"
+    if action == "decide":
+        return payload.get("decision", "")
+    return action
+
+
+def generate_post_mortem_diff(ideal_chain: list[dict], actual_action_log: list[dict]) -> dict:
+    actual_actions = [_normalize_action_name(entry) for entry in actual_action_log]
+
+    matches = []
+    misses = []
+    out_of_order = []
+
+    for index, step in enumerate(ideal_chain):
+        if step["action"] not in actual_actions:
+            misses.append(step)
+            continue
+        if actual_actions.index(step["action"]) == index:
+            matches.append(step)
+        else:
+            out_of_order.append(step)
+
+    return {"matches": matches, "misses": misses, "out_of_order": out_of_order}
+
+
 def build_ai_commander_update() -> dict:
     return {
         "type": "event_update",

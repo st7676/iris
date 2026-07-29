@@ -13,6 +13,11 @@ SILENT_LOGIN_SCENARIO = {
     "title": "Silent Login",
     "initial_severity": "medium",
     "initial_alert_message": "Unusual login activity detected.",
+    "ideal_reasoning_chain": [
+        {"step": 1, "action": "check_email_logs", "rationale": "Identify the initial attack vector"},
+        {"step": 2, "action": "check_auth_logs", "rationale": "Confirm how the attacker gained access"},
+        {"step": 3, "action": "escalate_to_soc_lead", "rationale": "Escalate given the severity of findings"},
+    ],
 }
 
 
@@ -31,6 +36,7 @@ def mongo_db(monkeypatch):
     monkeypatch.setattr(scenarios, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(incidents, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(ai, "incidents_collection", mock_db["incidents"])
+    monkeypatch.setattr(ai, "scenarios_collection", mock_db["scenarios"])
     monkeypatch.setattr(main_module, "incidents_collection", mock_db["incidents"])
 
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))

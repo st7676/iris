@@ -87,6 +87,7 @@ Response:
 | POST | `/api/incidents/{incident_id}/decide` | Record a decision, updates incident state |
 | POST | `/api/incidents/{incident_id}/hint` | Get a hint for a question (mock data, pending AI Mentor integration) |
 | POST | `/api/incidents/{incident_id}/complete` | End the simulation and get a score (mock data, pending AI Evaluator integration) |
+| GET | `/api/incidents/{incident_id}/report` | Post-mortem report: score, category breakdown, ideal vs. actual reasoning chain (mock data) |
 | WS | `/ws/incidents/{incident_id}` | Live event updates for the incident |
 
 ```bash
@@ -103,7 +104,15 @@ curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/hint \
   -d '{"user_question": "What should I check first?"}'
 
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete
+
+curl http://localhost:8000/api/incidents/SF-2026-0142/report
 ```
+
+The report compares each scenario's `ideal_reasoning_chain` (seeded on the scenario document)
+against the incident's actual `action_log` via
+[`generate_post_mortem_diff`](app/simulation/engine.py) — matched steps, out-of-order steps, and
+missed steps. The score and category breakdown are still mock data pending the AI Evaluator
+integration.
 
 Checking `auth_logs` within 60 seconds of the incident starting lowers severity by one
 level; checking anything else, or checking `auth_logs` too late, raises it (bounded
