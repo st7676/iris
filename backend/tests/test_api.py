@@ -207,9 +207,26 @@ def test_complete_returns_score_and_marks_incident_completed(client):
     incident = client.get(f"/api/incidents/{incident_id}").json()
     assert incident["status"] == "completed"
 
+    # The report can be re-fetched afterwards (e.g. on a page refresh),
+    # without re-running the AI Evaluator.
+    report = client.get(f"/api/incidents/{incident_id}/report")
+    assert report.status_code == 200
+    assert report.json() == body
+
 
 def test_complete_incident_not_found(client):
     response = client.post("/api/incidents/DOES-NOT-EXIST/complete")
+    assert response.status_code == 404
+
+
+def test_report_incident_not_found(client):
+    response = client.get("/api/incidents/DOES-NOT-EXIST/report")
+    assert response.status_code == 404
+
+
+def test_report_not_available_before_completion(client):
+    incident_id = _start_incident(client)
+    response = client.get(f"/api/incidents/{incident_id}/report")
     assert response.status_code == 404
 
 

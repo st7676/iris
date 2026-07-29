@@ -182,3 +182,14 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
         overall_score,
     )
     return score_doc
+
+
+@router.get("/{incident_id}/report", response_model=ScoreResponse)
+async def get_report(incident_id: str) -> dict:
+    incident = await _get_incident_or_404(incident_id)
+    score = incident.get("score")
+    if not score:
+        raise HTTPException(
+            status_code=404, detail="Report not available -- complete the incident first"
+        )
+    return score
