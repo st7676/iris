@@ -4,10 +4,12 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from app.api.routes import incidents, scenarios, users
+from app.core.logging_config import configure_logging
 from app.db.init_db import init_db
 from app.db.mongodb import incidents_collection
 from app.simulation.engine import build_ai_commander_update
 
+configure_logging()
 logger = logging.getLogger("iris.websocket")
 
 app = FastAPI(title="Iris Backend API")

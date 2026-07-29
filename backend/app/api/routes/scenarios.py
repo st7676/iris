@@ -45,6 +45,13 @@ async def start_scenario(
     incident = build_incident_document(scenario, payload.user_id)
     await incidents_collection.insert_one(dict(incident))
 
+    logger.info(
+        "incident_id=%s user_id=%s scenario_id=%s action=start_scenario",
+        incident["incident_id"],
+        payload.user_id,
+        scenario_id,
+    )
+
     return {
         "incident_id": incident["incident_id"],
         "scenario_id": incident["scenario_id"],

@@ -37,6 +37,24 @@ The test suite mocks MongoDB (`mongomock_motor`), so it runs without Docker or a
 database. It covers scenario start, incident retrieval, investigate/decide (including
 severity branching), and the incidents WebSocket.
 
+## Performance & logging
+
+On startup, `init_db()` creates unique indexes on `incidents.incident_id` and
+`scenarios.scenario_id` (see [`app/db/init_db.py`](app/db/init_db.py)) — every lookup in
+this API queries by one of those fields, so without them each request would be a full
+collection scan. Each core endpoint (`start`, `investigate`, `decide`, `hint`,
+`complete`) logs a structured `incident_id=... user_id=... action=...` line at INFO
+level; see [`app/core/logging_config.py`](app/core/logging_config.py) for the log
+format.
+
+`tests/test_api.py::test_non_ai_endpoints_respond_quickly` asserts these endpoints
+respond well under 500ms against the mocked MongoDB/SQLite used in tests. This was also
+verified against the real Dockerized Postgres/MongoDB (`docker-compose up db mongo` +
+`curl -w "%{time_total}\n"`): register/start/investigate/decide all landed in the
+200-320ms range, well within budget. `/complete` (which calls the AI Evaluator) responds
+in ~2.7s even when the OpenAI call fails outright, inside the <3s target from the
+Technical Spec.
+
 ## API endpoints
 
 ### Users

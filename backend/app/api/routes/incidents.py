@@ -56,12 +56,19 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
             "$set": {"severity": new_severity, "updated_at": evidence["revealed_at"]},
         },
     )
+    logger.info(
+        "incident_id=%s user_id=%s action=investigate evidence_type=%s new_severity=%s",
+        incident_id,
+        incident.get("user_id"),
+        payload.evidence_type,
+        new_severity,
+    )
     return await _get_incident_or_404(incident_id)
 
 
 @router.post("/{incident_id}/decide", response_model=IncidentResponse)
 async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
-    await _get_incident_or_404(incident_id)
+    incident = await _get_incident_or_404(incident_id)
 
     action_entry, new_state = record_decision(payload.decision, payload.notes)
     await incidents_collection.update_one(
@@ -73,6 +80,12 @@ async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
                 "updated_at": datetime.now(timezone.utc),
             },
         },
+    )
+    logger.info(
+        "incident_id=%s user_id=%s action=decide decision=%s",
+        incident_id,
+        incident.get("user_id"),
+        payload.decision,
     )
     return await _get_incident_or_404(incident_id)
 
@@ -96,6 +109,9 @@ async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
         raise HTTPException(
             status_code=503, detail="AI Mentor is temporarily unavailable, try again shortly"
         )
+    logger.info(
+        "incident_id=%s user_id=%s action=hint", incident_id, incident.get("user_id")
+    )
     return {"hint": hint}
 
 
@@ -159,4 +175,10 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
         )
         db.rollback()
 
+    logger.info(
+        "incident_id=%s user_id=%s action=complete score=%s",
+        incident_id,
+        incident.get("user_id"),
+        overall_score,
+    )
     return score_doc

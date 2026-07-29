@@ -271,3 +271,46 @@ def test_concurrent_investigate_requests_do_not_lose_data(client):
     incident = client.get(f"/api/incidents/{incident_id}").json()
     assert len(incident["action_log"]) == len(evidence_types)
     assert len(incident["evidence_revealed"]) == len(evidence_types)
+
+
+def test_non_ai_endpoints_respond_quickly(client):
+    """
+    Day 13 perf check. This can't measure real network latency (no live
+    Mongo/Postgres in this environment -- see backend/README.md's
+    Performance section), but it does catch gross regressions like an
+    accidental blocking call or O(n^2) loop on the request path.
+    """
+    import time
+
+    user_id = _register_user(client)
+
+    def _timed(method, path, **kwargs):
+        start = time.perf_counter()
+        response = method(path, **kwargs)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        return response, elapsed_ms
+
+    start_response, elapsed = _timed(
+        client.post,
+        "/api/scenarios/silent_login_v1/start",
+        json={"scenario_id": "silent_login_v1", "user_id": user_id},
+    )
+    assert elapsed < 500
+    incident_id = start_response.json()["incident_id"]
+
+    _, elapsed = _timed(client.get, f"/api/incidents/{incident_id}")
+    assert elapsed < 500
+
+    _, elapsed = _timed(
+        client.post,
+        f"/api/incidents/{incident_id}/investigate",
+        json={"evidence_type": "auth_logs"},
+    )
+    assert elapsed < 500
+
+    _, elapsed = _timed(
+        client.post,
+        f"/api/incidents/{incident_id}/decide",
+        json={"decision": "escalate_to_soc_lead"},
+    )
+    assert elapsed < 500
