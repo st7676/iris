@@ -48,6 +48,25 @@ export default function SimulationPage() {
     navigate('/report')
   }
 
+  const handleGetHint = async () => {
+    if (!incident) return
+    try {
+      const res = await fetch(`http://localhost:8000/api/incidents/${incident.incidentId}/hint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_question: 'איזו פעולה כדאי לי לעשות הבא?' }),
+      })
+      if (!res.ok) throw new Error('Failed to get hint')
+      const data = await res.json()
+      setToastMessage(`💡 AI Mentor: ${data.hint}`)
+      setTimeout(() => setToastMessage(null), 5000)
+    } catch (error) {
+      console.error('Failed to get hint:', error)
+      setToastMessage('לא הצלחתי לקבל רמז - בדוק שהחיבור לשרת פועל')
+      setTimeout(() => setToastMessage(null), 3000)
+    }
+  }
+
   if (!incident) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
@@ -105,6 +124,7 @@ export default function SimulationPage() {
               <ActionButton label="Check Auth Logs" onClick={() => handleInvestigate('Check Auth Logs')} />
               <ActionButton label="Reset Password + MFA" onClick={() => handleDecide('Reset Password + MFA')} />
               <ActionButton label="Isolate Device" variant="danger" onClick={() => handleDecide('Isolate Device')} />
+              <ActionButton label="💡 Get Hint" onClick={handleGetHint} variant="secondary" />
             </div>
           </div>
 
