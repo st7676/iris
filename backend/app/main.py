@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import incidents, scenarios, users
 from app.db.init_db import init_db
@@ -6,6 +7,14 @@ from app.db.mongodb import incidents_collection
 from app.simulation.engine import build_ai_commander_update
 
 app = FastAPI(title="Iris Backend API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(users.router)
 app.include_router(scenarios.router)
