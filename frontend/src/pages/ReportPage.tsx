@@ -64,26 +64,34 @@ export default function ReportPage() {
     )
   }
 
-  const mockSteps = [
-    { step: 1, ideal: 'Check Email Logs', yours: 'Check Email Logs', status: 'correct' as const },
-    { step: 2, ideal: 'Check Auth Logs', yours: 'Check File Access', status: 'wrong' as const },
-    { step: 3, ideal: 'Check Endpoint Logs', yours: 'Check Auth Logs', status: 'wrong' as const },
-    { step: 4, ideal: 'Reset Password + MFA', yours: 'Reset Password + MFA', status: 'correct' as const },
-    { step: 5, ideal: 'Isolate Device', yours: '(Not Done)', status: 'missing' as const },
-  ]
+  const idealChain: { step: number; action: string }[] = report.ideal_chain ?? []
+  const yourChain: { step: number; action: string }[] = report.your_chain ?? []
+  const stepCount = Math.max(idealChain.length, yourChain.length)
+  const comparisonSteps = Array.from({ length: stepCount }, (_, i) => {
+    const idealAction = idealChain[i]?.action
+    const yourAction = yourChain[i]?.action
+    const status: 'correct' | 'wrong' | 'missing' =
+      yourAction && yourAction === idealAction ? 'correct' : yourAction ? 'wrong' : 'missing'
+    return {
+      step: i + 1,
+      ideal: idealAction ?? '(none)',
+      yours: yourAction ?? '(Not Done)',
+      status,
+    }
+  })
 
   return (
     <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-4xl mx-auto space-y-6">
       <Scoreboard
-        finalScore={report.final_score}
+        finalScore={report.score}
         breakdown={[
-          { label: 'Detection', value: report.detection },
-          { label: 'Decision', value: report.decision },
-          { label: 'Response', value: report.response },
+          { label: 'Detection', value: report.categories?.detection_score },
+          { label: 'Decision', value: report.categories?.decision_score },
+          { label: 'Response', value: report.categories?.response_score },
         ]}
       />
 
-      <PostMortemComparison steps={mockSteps} />
+      <PostMortemComparison steps={comparisonSteps} />
 
       <div className="border border-border-default rounded p-4">
         <h2 className="text-sm uppercase text-text-secondary mb-2">Feedback</h2>
