@@ -3,7 +3,7 @@ import logging
 
 from sqlalchemy.exc import OperationalError
 
-from app.db.mongodb import scenarios_collection
+from app.db.mongodb import incidents_collection, scenarios_collection
 from app.db.postgres import Base, ScenarioMetadata, SessionLocal, engine
 
 logger = logging.getLogger("iris.init_db")
@@ -64,6 +64,14 @@ async def seed_mongo() -> None:
         await scenarios_collection.insert_one(dict(SILENT_LOGIN_SCENARIO))
 
 
+async def create_mongo_indexes() -> None:
+    # Every incident/scenario lookup is a find_one on this field (see
+    # incidents.py, scenarios.py) -- without an index each one is a full
+    # collection scan.
+    await incidents_collection.create_index("incident_id", unique=True)
+    await scenarios_collection.create_index("scenario_id", unique=True)
+
+
 async def init_db() -> None:
     # Postgres holds users/session_scores -- not needed for the core AI
     # simulation flow (incidents/investigate/hint/complete all live in
@@ -80,6 +88,7 @@ async def init_db() -> None:
             "will work; users/session_scores will not until Postgres is available."
         )
     await seed_mongo()
+    await create_mongo_indexes()
 
 
 if __name__ == "__main__":

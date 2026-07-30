@@ -1,9 +1,15 @@
+import logging
 from datetime import datetime, timezone
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.core import ai_bridge
 from app.db.mongodb import incidents_collection, scenarios_collection
+from app.db.postgres import SessionScore
+from app.deps import get_db
 from app.models.incident import (
     DecideRequest,
     HintRequest,
@@ -13,6 +19,8 @@ from app.models.incident import (
 )
 from app.simulation.branching_logic import apply_investigation_branch
 from app.simulation.engine import build_actual_chain, record_decision, record_investigation
+
+logger = logging.getLogger("iris.incidents")
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 
@@ -48,12 +56,19 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
             "$set": {"severity": new_severity, "updated_at": evidence["revealed_at"]},
         },
     )
+    logger.info(
+        "incident_id=%s user_id=%s action=investigate evidence_type=%s new_severity=%s",
+        incident_id,
+        incident.get("user_id"),
+        payload.evidence_type,
+        new_severity,
+    )
     return await _get_incident_or_404(incident_id)
 
 
 @router.post("/{incident_id}/decide", response_model=IncidentResponse)
 async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
-    await _get_incident_or_404(incident_id)
+    incident = await _get_incident_or_404(incident_id)
 
     action_entry, new_state = record_decision(payload.decision, payload.notes)
     await incidents_collection.update_one(
@@ -66,6 +81,12 @@ async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
             },
         },
     )
+    logger.info(
+        "incident_id=%s user_id=%s action=decide decision=%s",
+        incident_id,
+        incident.get("user_id"),
+        payload.decision,
+    )
     return await _get_incident_or_404(incident_id)
 
 
@@ -74,29 +95,44 @@ async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
     incident = await _get_incident_or_404(incident_id)
     action_history = [entry["action"] for entry in incident.get("action_log", [])]
 
-    hint = ai_bridge.mentor.provide_hint(
-        user_question=payload.user_question,
-        incident_context={
-            "scenario_id": incident.get("scenario_id"),
-            "severity": incident.get("severity"),
-        },
-        action_history=action_history,
+    try:
+        hint = ai_bridge.mentor.provide_hint(
+            user_question=payload.user_question,
+            incident_context={
+                "scenario_id": incident.get("scenario_id"),
+                "severity": incident.get("severity"),
+            },
+            action_history=action_history,
+        )
+    except Exception:
+        logger.error("AI Mentor call failed for incident %s", incident_id, exc_info=True)
+        raise HTTPException(
+            status_code=503, detail="AI Mentor is temporarily unavailable, try again shortly"
+        )
+    logger.info(
+        "incident_id=%s user_id=%s action=hint", incident_id, incident.get("user_id")
     )
     return {"hint": hint}
 
 
 @router.post("/{incident_id}/complete", response_model=ScoreResponse)
-async def complete_incident(incident_id: str) -> dict:
+async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> dict:
     incident = await _get_incident_or_404(incident_id)
     scenario = await scenarios_collection.find_one({"scenario_id": incident["scenario_id"]})
     ideal_chain = (scenario or {}).get("ideal_reasoning_chain", [])
     actual_chain = build_actual_chain(incident.get("action_log", []))
 
-    result = ai_bridge.evaluator.evaluate(
-        ideal_chain=ideal_chain,
-        actual_chain=actual_chain,
-        final_severity=incident["severity"],
-    )
+    try:
+        result = ai_bridge.evaluator.evaluate(
+            ideal_chain=ideal_chain,
+            actual_chain=actual_chain,
+            final_severity=incident["severity"],
+        )
+    except Exception:
+        logger.error("AI Evaluator call failed for incident %s", incident_id, exc_info=True)
+        raise HTTPException(
+            status_code=503, detail="AI Evaluator is temporarily unavailable, try again shortly"
+        )
 
     categories = {
         "detection_score": result.get("detection_score", 0),
@@ -119,4 +155,41 @@ async def complete_incident(incident_id: str) -> dict:
         {"incident_id": incident_id},
         {"$set": {"status": "completed", "score": score_doc, "updated_at": datetime.now(timezone.utc)}},
     )
+
+    try:
+        db.add(
+            SessionScore(
+                user_id=UUID(incident["user_id"]),
+                incident_id=incident_id,
+                scenario_id=incident["scenario_id"],
+                score=overall_score,
+            )
+        )
+        db.commit()
+    except SQLAlchemyError:
+        logger.warning(
+            "Could not record session_scores for incident %s (Postgres unreachable, "
+            "or user_id doesn't match a registered user) -- "
+            "/api/users/{user_id}/history will miss it.",
+            incident_id,
+        )
+        db.rollback()
+
+    logger.info(
+        "incident_id=%s user_id=%s action=complete score=%s",
+        incident_id,
+        incident.get("user_id"),
+        overall_score,
+    )
     return score_doc
+
+
+@router.get("/{incident_id}/report", response_model=ScoreResponse)
+async def get_report(incident_id: str) -> dict:
+    incident = await _get_incident_or_404(incident_id)
+    score = incident.get("score")
+    if not score:
+        raise HTTPException(
+            status_code=404, detail="Report not available -- complete the incident first"
+        )
+    return score

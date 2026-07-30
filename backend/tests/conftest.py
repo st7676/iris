@@ -5,6 +5,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -80,7 +83,39 @@ def mock_ai_bridge(request, monkeypatch):
 
 
 @pytest.fixture
-def client(mongo_db):
+def postgres_db():
+    """
+    Swap the real Postgres-backed session for an in-memory SQLite one, so
+    tests can verify session_scores/users writes without a live Postgres
+    instance. SQLAlchemy compiles the Postgres-specific UUID column type to
+    a portable equivalent on other dialects, so the same models work as-is.
+    """
+    from app.db.postgres import Base
+    from app.deps import get_db
+    from app.main import app
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield TestingSessionLocal
+    app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def client(mongo_db, postgres_db):
     from app.main import app
 
     return TestClient(app)

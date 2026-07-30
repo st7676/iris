@@ -2,21 +2,35 @@
 
 FastAPI backend for the Iris SOC incident-simulation platform. Owns the REST API, the
 incident state machine, and WebSocket updates, backed by PostgreSQL (users, scores) and
-MongoDB (scenarios, incidents, evidence).
+MongoDB (scenarios, incidents, evidence). AI Commander/Mentor/Evaluator (`/hint`,
+`/complete`, and the incident WebSocket) are real OpenAI-backed agents from the sibling
+[`ai_services/`](../ai_services) project, bridged in via
+[`app/core/ai_bridge.py`](app/core/ai_bridge.py) — not mock responses.
 
 ## Running locally
+
+Copy `ai_services/.env.example` to `ai_services/.env` and set a real `OPENAI_API_KEY`
+(needed for `/hint`, `/complete`, and WebSocket updates to call OpenAI instead of failing
+with a 503):
+
+```bash
+cp ../ai_services/.env.example ../ai_services/.env
+```
+
+Then:
 
 ```bash
 docker-compose up
 ```
 
 This starts three services: `fastapi` (port `8000`), `db` (Postgres, port `5432`), and
-`mongo` (MongoDB, port `27017`). On startup the API creates the Postgres tables and seeds
-the `silent_login_v1` scenario into both stores.
+`mongo` (MongoDB, port `27017`). On startup the API creates the Postgres tables, creates
+MongoDB indexes, and seeds the `silent_login_v1` scenario into both stores.
 
 - API root: http://localhost:8000/
 - Interactive docs (Swagger UI): http://localhost:8000/docs
-- OpenAPI schema: http://localhost:8000/openapi.json
+- OpenAPI schema: http://localhost:8000/openapi.json — import this directly into
+  Postman/Insomnia rather than maintaining a separate collection file.
 
 To run the API outside Docker, copy `.env.example` to `.env`, point `DATABASE_URL` /
 `MONGODB_URL` at your own Postgres/Mongo instances, then:
@@ -33,9 +47,36 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-The test suite mocks MongoDB (`mongomock_motor`), so it runs without Docker or a live
-database. It covers scenario start, incident retrieval, investigate/decide (including
-severity branching), and the incidents WebSocket.
+The test suite mocks MongoDB (`mongomock_motor`) and PostgreSQL (an in-memory SQLite
+swap, see `tests/conftest.py::postgres_db`), and stubs the OpenAI-backed AI agents (see
+`tests/conftest.py::mock_ai_bridge`), so it runs without Docker, a live database, or an
+`OPENAI_API_KEY`. It covers scenario start, incident retrieval, investigate/decide
+(including severity branching), hint/complete/report, the incidents WebSocket, a full
+happy-path E2E flow (asserting both Mongo and Postgres state), edge cases (invalid
+user_id, missing incident_id, concurrent requests), AI-call failure handling (503s
+instead of crashes), and response-time sanity checks.
+
+`tests/test_live_e2e.py` runs the same happy path against the *real* OpenAI API. It's
+tagged `@pytest.mark.live` and excluded by default (see `pytest.ini`) since it costs
+money and needs a real `OPENAI_API_KEY`; run it explicitly with `pytest -m live`.
+
+## Performance & logging
+
+On startup, `init_db()` creates unique indexes on `incidents.incident_id` and
+`scenarios.scenario_id` (see [`app/db/init_db.py`](app/db/init_db.py)) — every lookup in
+this API queries by one of those fields, so without them each request would be a full
+collection scan. Each core endpoint (`start`, `investigate`, `decide`, `hint`,
+`complete`) logs a structured `incident_id=... user_id=... action=...` line at INFO
+level; see [`app/core/logging_config.py`](app/core/logging_config.py) for the log
+format.
+
+`tests/test_api.py::test_non_ai_endpoints_respond_quickly` asserts these endpoints
+respond well under 500ms against the mocked MongoDB/SQLite used in tests. This was also
+verified against the real Dockerized Postgres/MongoDB (`docker-compose up db mongo` +
+`curl -w "%{time_total}\n"`): register/start/investigate/decide all landed in the
+200-320ms range, well within budget. `/complete` (which calls the AI Evaluator) responds
+in ~2.7s even when the OpenAI call fails outright, inside the <3s target from the
+Technical Spec.
 
 ## API endpoints
 
@@ -83,9 +124,12 @@ Response:
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/incidents/{incident_id}` | Get the full incident (status, evidence, action log) |
-| POST | `/api/incidents/{incident_id}/investigate` | Investigate a piece of evidence (mock data) |
+| POST | `/api/incidents/{incident_id}/investigate` | Investigate a piece of evidence |
 | POST | `/api/incidents/{incident_id}/decide` | Record a decision, updates incident state |
-| WS | `/ws/incidents/{incident_id}` | Live event updates for the incident |
+| POST | `/api/incidents/{incident_id}/hint` | Ask AI Mentor for a graduated hint (never the answer outright) |
+| POST | `/api/incidents/{incident_id}/complete` | End the simulation; AI Evaluator scores it and records `session_scores` |
+| GET | `/api/incidents/{incident_id}/report` | Re-fetch a completed incident's report (score, categories, ideal vs. actual chain, feedback) |
+| WS | `/ws/incidents/{incident_id}` | Live event updates for the incident (AI Commander) |
 
 ```bash
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/investigate \
@@ -95,16 +139,60 @@ curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/investigate \
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/decide \
   -H "Content-Type: application/json" \
   -d '{"decision": "escalate_to_soc_lead", "notes": "Multiple failed logins from an unrecognized location."}'
+
+curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/hint \
+  -H "Content-Type: application/json" \
+  -d '{"user_question": "What should I check first?"}'
+
+curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete
+
+curl http://localhost:8000/api/incidents/SF-2026-0142/report
 ```
 
 Checking `auth_logs` within 60 seconds of the incident starting lowers severity by one
 level; checking anything else, or checking `auth_logs` too late, raises it (bounded
 between `low` and `critical`). See [`app/simulation/branching_logic.py`](app/simulation/branching_logic.py).
 
+`hint` and `complete` call the real AI Mentor/Evaluator (see `app/core/ai_bridge.py`); if
+the OpenAI call fails outright (rate limit, timeout, missing/invalid key), the endpoint
+returns `503` rather than crashing. `complete` compares the scenario's
+`ideal_reasoning_chain` (seeded in MongoDB) against the incident's actual `action_log`
+(normalized via `build_actual_chain` in
+[`app/simulation/engine.py`](app/simulation/engine.py)) and feeds both to AI Evaluator;
+the resulting score is also written to PostgreSQL's `session_scores`, so it shows up in
+`/api/users/{user_id}/history`.
+
 ## Configuration
 
 All configuration is environment-based via [`app/core/config.py`](app/core/config.py)
-(`DATABASE_URL`, `MONGODB_URL`, `MONGODB_DB_NAME`) — see `.env.example`. There are no
-hardcoded credentials in application code; the `secret` Postgres password in
-`docker-compose.yml` is a local-only default for the Dockerized dev database, not a real
-credential.
+(`DATABASE_URL`, `MONGODB_URL`, `MONGODB_DB_NAME`) — see `.env.example` — plus
+`ai_services/.env` for `OPENAI_API_KEY` and friends (see
+[`ai_services/.env.example`](../ai_services/.env.example)). There are no hardcoded
+credentials in application code; the `secret` Postgres password in `docker-compose.yml`
+is a local-only default for the Dockerized dev database (user `postgres`, matching
+Postgres's default when `POSTGRES_USER` isn't set), not a real credential.
+
+If PostgreSQL is unreachable at startup or at request time, the API logs a warning and
+keeps working for the core Mongo-backed simulation flow (start/investigate/decide/hint/
+complete) — only `users`/`session_scores`-backed features (registration, history) are
+affected. See `app/db/init_db.py` and the `try/except SQLAlchemyError` in
+`app/api/routes/incidents.py` and `scenarios.py`.
+
+## Verified via `docker-compose up`
+
+The full stack (build + all three services) has been run and exercised end to end, not
+just tested with mocks. Two bugs only showed up this way and are now fixed:
+
+- `docker-compose.yml`'s `DATABASE_URL` used `user:pass`, but the `db` service's actual
+  Postgres user is `postgres` (default, since `POSTGRES_USER` isn't set) — every real
+  Docker run silently failed to connect to Postgres, masked by the "unreachable" fallback
+  warning. Fixed to `postgres:secret`.
+- `requirements.txt` listed bare `uvicorn`, which has no WebSocket implementation —
+  `/ws/incidents/{incident_id}` returned a 404 in the real deployed container ("No
+  supported WebSocket library detected"). This was invisible to `pytest` because
+  `TestClient`'s `websocket_connect` uses Starlette's in-process test transport, which
+  doesn't need one. Fixed by switching to `uvicorn[standard]`.
+
+With those fixed, a full register → start → investigate → decide → complete → history
+flow, the WebSocket, structured logs, MongoDB indexes, and Postgres tables were all
+confirmed working against the real Dockerized stack.
