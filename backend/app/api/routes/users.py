@@ -3,10 +3,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.db.postgres import SessionScore, User
 from app.deps import get_db
-from app.models.user import UserCreate, UserResponse
+from app.models.user import UserCreate, UserLogin, UserResponse
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -29,6 +29,14 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    return user
+
+
+@router.post("/login", response_model=UserResponse)
+def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> User:
+    user = db.query(User).filter(User.username == payload.username).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     return user
 
 

@@ -20,6 +20,20 @@ class UserCreate(BaseModel):
     )
 
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "username": "sara_soc",
+                "password": "StrongPassw0rd!",
+            }
+        }
+    )
+
+
 class UserResponse(BaseModel):
     id: UUID
     username: str

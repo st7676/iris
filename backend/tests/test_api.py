@@ -42,6 +42,51 @@ def test_openapi_docs_available(client):
     assert "/api/incidents/{incident_id}" in paths
 
 
+def test_login_success(client):
+    suffix = uuid.uuid4().hex[:8]
+    username = f"sara_soc_{suffix}"
+    client.post(
+        "/api/users/register",
+        json={
+            "username": username,
+            "email": f"sara_{suffix}@example.com",
+            "password": "StrongPassw0rd!",
+        },
+    )
+    response = client.post(
+        "/api/users/login",
+        json={"username": username, "password": "StrongPassw0rd!"},
+    )
+    assert response.status_code == 200
+    assert response.json()["username"] == username
+
+
+def test_login_wrong_password(client):
+    suffix = uuid.uuid4().hex[:8]
+    username = f"sara_soc_{suffix}"
+    client.post(
+        "/api/users/register",
+        json={
+            "username": username,
+            "email": f"sara_{suffix}@example.com",
+            "password": "StrongPassw0rd!",
+        },
+    )
+    response = client.post(
+        "/api/users/login",
+        json={"username": username, "password": "WrongPassword!"},
+    )
+    assert response.status_code == 401
+
+
+def test_login_unknown_user(client):
+    response = client.post(
+        "/api/users/login",
+        json={"username": "does_not_exist", "password": "whatever"},
+    )
+    assert response.status_code == 401
+
+
 def test_start_scenario(client):
     user_id = _register_user(client)
     response = client.post(
