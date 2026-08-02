@@ -17,6 +17,20 @@ _MOCK_EVIDENCE: Dict[str, Any] = {
         "browser": "Chrome 118",
         "first_seen": True,
     },
+    "file_access_logs": {
+        "files_accessed": ["/finance/q3_projections.xlsx", "/hr/salaries_2026.csv"],
+        "accessed_at": "2026-01-15T23:47:00Z",
+        "outside_business_hours": True,
+    },
+    "usb_device_logs": {
+        "device": "SanDisk Ultra USB 3.0",
+        "connected_at": "2026-01-15T23:52:00Z",
+        "bytes_transferred": 214748364,
+    },
+    "hr_status": {
+        "employment_status": "resignation_submitted",
+        "last_day": "2026-01-20",
+    },
 }
 
 _DEFAULT_EVIDENCE = {"note": "No additional data available for this evidence type."}

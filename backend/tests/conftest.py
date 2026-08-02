@@ -29,6 +29,7 @@ def mongo_db(monkeypatch):
     import app.db.mongodb as mongodb_module
     import app.main as main_module
     from app.api.routes import incidents, scenarios
+    from app.db.init_db import INSIDER_THREAT_SCENARIO
 
     mock_db = AsyncMongoMockClient()["iris_test"]
 
@@ -42,6 +43,7 @@ def mongo_db(monkeypatch):
     monkeypatch.setattr(main_module, "incidents_collection", mock_db["incidents"])
 
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))
+    asyncio.run(mock_db["scenarios"].insert_one(dict(INSIDER_THREAT_SCENARIO)))
     return mock_db
 
 

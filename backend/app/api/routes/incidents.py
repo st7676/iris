@@ -47,6 +47,7 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
         current_severity=incident["severity"],
         incident_created_at=incident["created_at"],
         checked_at=evidence["revealed_at"],
+        scenario_id=incident["scenario_id"],
     )
 
     await incidents_collection.update_one(

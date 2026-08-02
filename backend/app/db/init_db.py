@@ -33,6 +33,38 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
+INSIDER_THREAT_SCENARIO = {
+    "scenario_id": "insider_threat_v1",
+    "title": "Insider Threat",
+    "description": "עובדת שעוזבת את הארגון ניגשת לקבצים רגישים בשעות לא שגרתיות.",
+    "initial_severity": "medium",
+    "initial_alert_message": "זוהתה גישה חריגה לקבצים רגישים.",
+    "ideal_reasoning_chain": [
+        {
+            "step": 1,
+            "action": "check_file_access_logs",
+            "rationale": "לזהות אילו קבצים ניגשו ומתי",
+        },
+        {
+            "step": 2,
+            "action": "check_usb_device_logs",
+            "rationale": "לבדוק אם היה ניסיון להעתקת נתונים החוצה",
+        },
+        {
+            "step": 3,
+            "action": "check_hr_status",
+            "rationale": "לוודא אם העובדת בתהליך עזיבה — מקור הסיכון",
+        },
+        {
+            "step": 4,
+            "action": "revoke_access",
+            "rationale": "לחסום גישה נוספת מיידית",
+        },
+    ],
+}
+
+SCENARIOS = [SILENT_LOGIN_SCENARIO, INSIDER_THREAT_SCENARIO]
+
 
 def create_postgres_tables() -> None:
     Base.metadata.create_all(bind=engine)
@@ -41,27 +73,29 @@ def create_postgres_tables() -> None:
 def seed_postgres() -> None:
     db = SessionLocal()
     try:
-        exists = db.get(ScenarioMetadata, SILENT_LOGIN_SCENARIO["scenario_id"])
-        if not exists:
-            db.add(
-                ScenarioMetadata(
-                    scenario_id=SILENT_LOGIN_SCENARIO["scenario_id"],
-                    title=SILENT_LOGIN_SCENARIO["title"],
-                    difficulty="medium",
-                    times_played=0,
+        for scenario in SCENARIOS:
+            exists = db.get(ScenarioMetadata, scenario["scenario_id"])
+            if not exists:
+                db.add(
+                    ScenarioMetadata(
+                        scenario_id=scenario["scenario_id"],
+                        title=scenario["title"],
+                        difficulty="medium",
+                        times_played=0,
+                    )
                 )
-            )
-            db.commit()
+        db.commit()
     finally:
         db.close()
 
 
 async def seed_mongo() -> None:
-    existing = await scenarios_collection.find_one(
-        {"scenario_id": SILENT_LOGIN_SCENARIO["scenario_id"]}
-    )
-    if not existing:
-        await scenarios_collection.insert_one(dict(SILENT_LOGIN_SCENARIO))
+    for scenario in SCENARIOS:
+        existing = await scenarios_collection.find_one(
+            {"scenario_id": scenario["scenario_id"]}
+        )
+        if not existing:
+            await scenarios_collection.insert_one(dict(scenario))
 
 
 async def create_mongo_indexes() -> None:
