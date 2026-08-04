@@ -1,6 +1,5 @@
 ﻿import { create } from 'zustand'
-
-const API_BASE = 'http://localhost:8000/api'
+import { API_BASE } from '../lib/constants'
 
 async function registerUser() {
   const timestamp = Date.now()
@@ -66,6 +65,7 @@ interface Incident {
   incidentId: string
   severity: 'low' | 'medium' | 'high'
   alertMessage: string
+  startedAt: string
 }
 
 interface TimelineStep {
@@ -152,6 +152,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
           incidentId: incident.incident_id,
           severity: incident.severity,
           alertMessage: incident.alert_message,
+          startedAt: incident.timestamp,
         },
         timeline: [{ label: 'Check Email Logs', status: 'current' }],
         evidence: [],
@@ -166,6 +167,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
           incidentId: 'SF-2026-ERROR',
           severity: 'medium',
           alertMessage: 'Failed to load incident from server',
+          startedAt: new Date().toISOString(),
         },
         timeline: [{ label: 'Check Email Logs', status: 'current' }],
         evidence: [],

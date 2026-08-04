@@ -9,6 +9,7 @@ import Toast from '../components/common/Toast'
 import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { API_BASE } from '../lib/constants'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -51,7 +52,7 @@ export default function SimulationPage() {
   const handleGetHint = async () => {
     if (!incident) return
     try {
-      const res = await fetch(`http://localhost:8000/api/incidents/${incident.incidentId}/hint`, {
+      const res = await fetch(`${API_BASE}/incidents/${incident.incidentId}/hint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_question: 'איזו פעולה כדאי לי לעשות הבא?' }),
@@ -77,7 +78,7 @@ export default function SimulationPage() {
 
   return (
     <div className="page min-h-screen bg-bg-primary text-text-primary">
-      <SOCHeader incidentId={incident.incidentId} severity={incident.severity} />
+      <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">
         <div className="md:col-span-2 space-y-4">

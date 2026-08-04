@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
+import { API_BASE } from '../lib/constants'
 
 const severityColor = {
   low: 'text-accent-success',
@@ -31,7 +32,7 @@ export default function HistoryPage() {
       }
 
       try {
-        const res = await fetch(`http://localhost:8000/api/users/${userId}/history`)
+        const res = await fetch(`${API_BASE}/users/${userId}/history`)
         if (!res.ok) throw new Error('Failed to fetch history')
         const data = await res.json()
 
