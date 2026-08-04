@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import rate_limit
 from app.core.security import hash_password, verify_password
 from app.db.postgres import SessionScore, User
 from app.deps import get_db
@@ -11,7 +12,12 @@ from app.models.user import UserCreate, UserLogin, UserResponse
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=201)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=201,
+    dependencies=[Depends(rate_limit)],
+)
 def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     existing = (
         db.query(User)
@@ -32,7 +38,7 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     return user
 
 
-@router.post("/login", response_model=UserResponse)
+@router.post("/login", response_model=UserResponse, dependencies=[Depends(rate_limit)])
 def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> User:
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.hashed_password):

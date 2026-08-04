@@ -79,6 +79,21 @@ def test_login_wrong_password(client):
     assert response.status_code == 401
 
 
+def test_login_rate_limited_after_threshold(client):
+    for _ in range(10):
+        response = client.post(
+            "/api/users/login",
+            json={"username": "does_not_exist", "password": "whatever"},
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/api/users/login",
+        json={"username": "does_not_exist", "password": "whatever"},
+    )
+    assert response.status_code == 429
+
+
 def test_login_unknown_user(client):
     response = client.post(
         "/api/users/login",

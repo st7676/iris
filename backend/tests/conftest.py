@@ -48,6 +48,14 @@ def mongo_db(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    from app.core.rate_limit import reset_rate_limits
+
+    reset_rate_limits()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def mock_ai_bridge(request, monkeypatch):
     """
     Stub out the real OpenAI-backed agents for the default test suite, so
