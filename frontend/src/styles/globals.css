@@ -23,9 +23,23 @@
 
 body {
   background-color: var(--color-bg-primary);
+  /* Subtle grid texture, inspired by escaperoom.autoright10.com's
+     dot/grid-lined background -- gives the flat dark panels some depth
+     instead of a plain solid fill. */
+  background-image:
+    linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
   color: var(--color-text-primary);
   font-family: var(--font-mono);
   line-height: 1.6;
+}
+
+/* Big, dramatic "mission briefing" headline treatment -- used sparingly
+   (HomePage hero, SimulationPage alert banner) where the design should
+   feel cinematic rather than like a dense dashboard. */
+.briefing-glow {
+  text-shadow: 0 0 24px currentColor;
 }
 
 ::-webkit-scrollbar {
@@ -53,23 +67,23 @@ body {
 .hud-frame::after {
   content: '';
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 24px;
+  height: 24px;
   pointer-events: none;
   border-color: var(--hud-color);
   border-style: solid;
   border-width: 0;
-  filter: drop-shadow(0 0 3px var(--hud-color));
+  filter: drop-shadow(0 0 6px var(--hud-color));
 }
 .hud-frame::before {
-  top: -1px;
-  left: -1px;
-  border-top-width: 2px;
-  border-left-width: 2px;
+  top: -2px;
+  left: -2px;
+  border-top-width: 3px;
+  border-left-width: 3px;
 }
 .hud-frame::after {
-  bottom: -1px;
-  right: -1px;
-  border-bottom-width: 2px;
-  border-right-width: 2px;
+  bottom: -2px;
+  right: -2px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
 }

@@ -80,16 +80,20 @@ export default function SimulationPage() {
     <div className="page min-h-screen bg-bg-primary text-text-primary">
       <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
 
+      <div
+        className="hud-frame mx-4 mt-4 border-2 border-accent-danger bg-accent-danger/10 rounded p-5 animate-pulse"
+        style={{ ['--hud-color' as string]: 'var(--color-accent-danger)', animationDuration: '2.5s' }}
+      >
+        <h2 className="text-xs uppercase tracking-[0.3em] text-accent-danger mb-1">
+          ⚠ Active Alert
+        </h2>
+        <p className="briefing-glow text-xl sm:text-2xl font-bold text-text-primary">
+          {incident.alertMessage}
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">
         <div className="md:col-span-2 space-y-4">
-          <div
-            className="hud-frame border border-border-default rounded p-4"
-            style={{ ['--hud-color' as string]: 'var(--color-accent-danger)' }}
-          >
-            <h2 className="text-sm uppercase text-text-secondary mb-2">Alert</h2>
-            <p className="text-sm">{incident.alertMessage}</p>
-          </div>
-
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Event Timeline</h2>
             <EventTimeline steps={timeline} />
