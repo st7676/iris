@@ -213,7 +213,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
 
   investigateEvidence: async (evidenceType: string) => {
     const state = useSimulationStore.getState()
-    if (!state.incident) return
+    if (!state.incident) throw new Error('No incident in progress')
 
     try {
       await apiInvestigate(state.incident.incidentId, evidenceType)
@@ -236,12 +236,13 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       })
     } catch (error) {
       console.error('Failed to investigate:', error)
+      throw error
     }
   },
 
   decide: async (action: string) => {
     const state = useSimulationStore.getState()
-    if (!state.incident) return
+    if (!state.incident) throw new Error('No incident in progress')
 
     try {
       await apiDecide(state.incident.incidentId, action)
@@ -264,6 +265,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       })
     } catch (error) {
       console.error('Failed to decide:', error)
+      throw error
     }
   },
 

@@ -22,25 +22,46 @@ export default function SimulationPage() {
   const { incident, timeline, evidence, startSimulation, investigateEvidence, decide, completeSimulation } =
     useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!incident) {
-      startSimulation('silent_login_v1')
+      startSimulation('silent_login_v1').catch((err) => {
+        setToastMessage(`Failed to start simulation: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      })
     }
   }, [incident, startSimulation])
 
   useWebSocket(incident?.incidentId || '')
 
   const handleInvestigate = async (label: string) => {
-    await investigateEvidence(label)
-    setToastMessage(`${label}: investigation complete`)
-    setTimeout(() => setToastMessage(null), 3000)
+    try {
+      setLoading(true)
+      await investigateEvidence(label)
+      setToastMessage(`${label}: investigation complete`)
+      setTimeout(() => setToastMessage(null), 3000)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Investigation failed'
+      setToastMessage(`Failed: ${errorMsg}`)
+      setTimeout(() => setToastMessage(null), 4000)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDecide = async (label: string) => {
-    await decide(label)
-    setToastMessage(`${label}: action taken`)
-    setTimeout(() => setToastMessage(null), 3000)
+    try {
+      setLoading(true)
+      await decide(label)
+      setToastMessage(`${label}: action taken`)
+      setTimeout(() => setToastMessage(null), 3000)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Decision failed'
+      setToastMessage(`Failed: ${errorMsg}`)
+      setTimeout(() => setToastMessage(null), 4000)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleComplete = async () => {
@@ -120,11 +141,11 @@ export default function SimulationPage() {
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Actions</h2>
             <div className="flex flex-wrap gap-2">
-              <ActionButton label="Check Email Logs" onClick={() => handleInvestigate('Check Email Logs')} />
-              <ActionButton label="Check Auth Logs" onClick={() => handleInvestigate('Check Auth Logs')} />
-              <ActionButton label="Reset Password + MFA" onClick={() => handleDecide('Reset Password + MFA')} />
-              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleDecide('Isolate Device')} />
-              <ActionButton label="💡 Get Hint" onClick={handleGetHint} variant="secondary" />
+              <ActionButton label="Check Email Logs" onClick={() => handleInvestigate('Check Email Logs')} disabled={loading} />
+              <ActionButton label="Check Auth Logs" onClick={() => handleInvestigate('Check Auth Logs')} disabled={loading} />
+              <ActionButton label="Reset Password + MFA" onClick={() => handleDecide('Reset Password + MFA')} disabled={loading} />
+              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleDecide('Isolate Device')} disabled={loading} />
+              <ActionButton label="💡 Get Hint" onClick={handleGetHint} variant="secondary" disabled={loading} />
             </div>
           </div>
 
