@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import incidents, scenarios, users
+from app.api.routes import incidents, instructor, scenarios, users
 from app.core.logging_config import configure_logging
 from app.db.init_db import init_db
 from app.db.mongodb import incidents_collection
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(scenarios.router)
 app.include_router(incidents.router)
+app.include_router(instructor.router)
 
 
 @app.on_event("startup")
