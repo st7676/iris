@@ -5,6 +5,7 @@ import SimulationPage from './pages/SimulationPage'
 import ReportPage from './pages/ReportPage'
 import HistoryPage from './pages/HistoryPage'
 import LoginPage from './pages/LoginPage'
+import InstructorDashboardPage from './pages/InstructorDashboardPage'
 import { useSimulationStore } from './hooks/useSimulation'
 
 function ProtectedRoute({ element }: { element: React.ReactNode }) {
@@ -29,6 +30,7 @@ function App() {
       <Route path="/simulation" element={<ProtectedRoute element={<SimulationPage />} />} />
       <Route path="/report" element={<ProtectedRoute element={<ReportPage />} />} />
       <Route path="/history" element={<ProtectedRoute element={<HistoryPage />} />} />
+      <Route path="/instructor-dashboard" element={<ProtectedRoute element={<InstructorDashboardPage />} />} />
     </Routes>
   )
 }

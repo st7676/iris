@@ -93,6 +93,12 @@ export default function HomePage() {
           >
             My History
           </button>
+          <button
+            onClick={() => navigate('/instructor-dashboard')}
+            className="flex-1 border border-accent-warning text-accent-warning py-2 px-4 uppercase tracking-wide text-sm hover:bg-accent-warning/10 transition-all"
+          >
+            Instructor Dashboard
+          </button>
         </div>
       </div>
     </div>
