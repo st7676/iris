@@ -23,5 +23,26 @@ def test_commander():
     assert len(update) > 0
 
 
+def test_commander_reacts_differently_to_fast_vs_slow_investigation():
+    """
+    Day 18 (Markeriot sprint): the narrative should feel live and reactive,
+    not templated -- a fast correct check and a slow/wrong one should
+    produce meaningfully different updates, not the same boilerplate.
+    """
+    commander = AICommander()
+    fast_update = commander.generate_update(
+        {"scenario_id": "silent_login_v1", "severity": "low", "alert_message": "Unusual login activity detected."},
+        "checked auth logs within 45 seconds of the alert",
+    )
+    slow_update = commander.generate_update(
+        {"scenario_id": "silent_login_v1", "severity": "high", "alert_message": "Unusual login activity detected."},
+        "checked email logs, several minutes after the alert, missing the auth logs",
+    )
+    print(f"Fast: {fast_update}")
+    print(f"Slow: {slow_update}")
+    assert fast_update.strip().lower() != slow_update.strip().lower()
+
+
 if __name__ == "__main__":
     test_commander()
+    test_commander_reacts_differently_to_fast_vs_slow_investigation()
