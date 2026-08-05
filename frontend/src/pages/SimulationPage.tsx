@@ -25,7 +25,7 @@ export default function SimulationPage() {
 
   useEffect(() => {
     if (!incident) {
-      startSimulation()
+      startSimulation('silent_login_v1')
     }
   }, [incident, startSimulation])
 
