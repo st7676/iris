@@ -1,19 +1,48 @@
 ﻿import { create } from 'zustand'
 
 const API_BASE = 'http://localhost:8000/api'
+const STORAGE_KEY = 'iris_user_id'
 
-async function registerUser() {
+function getStoredUserId(): string | null {
+  return localStorage.getItem(STORAGE_KEY)
+}
+
+function storeUserId(id: string): void {
+  localStorage.setItem(STORAGE_KEY, id)
+}
+
+function clearStoredUserId(): void {
+  localStorage.removeItem(STORAGE_KEY)
+}
+
+async function loginUser(username: string, password: string) {
+  const res = await fetch(`${API_BASE}/users/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.detail || `Login failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+async function registerUser(username: string, password: string, email?: string) {
   const timestamp = Date.now()
   const res = await fetch(`${API_BASE}/users/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      username: `user_${timestamp}`,
-      email: `user_${timestamp}@guest.irisapp.io`,
-      password: 'SecurePassword123!',
+      username: username || `user_${timestamp}`,
+      email: email || `${username || `user_${timestamp}`}@guest.irisapp.io`,
+      password: password || 'SecurePassword123!',
     }),
   })
-  if (!res.ok) throw new Error(`Register failed: ${res.status}`)
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.detail || `Register failed: ${res.status}`)
+  }
   return res.json()
 }
 
@@ -114,7 +143,9 @@ interface SimulationState {
   actionLog: ActionLogEntry[]
   completed: boolean
   userId: string | null
-  startSimulation: () => void
+  login: (username: string, password: string, isRegister?: boolean) => Promise<void>
+  logout: () => void
+  startSimulation: (scenarioId?: string) => Promise<void>
   investigateEvidence: (evidenceType: string) => void
   decide: (action: string) => void
   completeSimulation: () => void
@@ -126,12 +157,32 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   evidence: [],
   actionLog: [],
   completed: false,
-  userId: null,
+  userId: getStoredUserId(),
 
-  startSimulation: async () => {
+  login: async (username: string, password: string, isRegister = false) => {
     try {
-      const user = await registerUser()
-      const incident = await startScenario(user.id)
+      const user = isRegister
+        ? await registerUser(username, password)
+        : await loginUser(username, password)
+      storeUserId(user.id)
+      set({ userId: user.id })
+    } catch (error) {
+      throw error
+    }
+  },
+
+  logout: () => {
+    clearStoredUserId()
+    set({ userId: null })
+  },
+
+  startSimulation: async (scenarioId = 'silent_login_v1') => {
+    try {
+      const state = useSimulationStore.getState()
+      if (!state.userId) {
+        throw new Error('User must be logged in to start simulation')
+      }
+      const incident = await startScenario(state.userId, scenarioId)
       set({
         incident: {
           incidentId: incident.incident_id,
@@ -142,7 +193,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         evidence: [],
         actionLog: [],
         completed: false,
-        userId: user.id,
       })
     } catch (error) {
       console.error('Failed to start simulation:', error)
@@ -150,14 +200,14 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         incident: {
           incidentId: 'SF-2026-ERROR',
           severity: 'medium',
-          alertMessage: 'Failed to load incident from server',
+          alertMessage: error instanceof Error ? error.message : 'Failed to load incident from server',
         },
         timeline: [{ label: 'Check Email Logs', status: 'current' }],
         evidence: [],
         actionLog: [],
         completed: false,
-        userId: null,
       })
+      throw error
     }
   },
 

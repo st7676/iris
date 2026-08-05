@@ -1,10 +1,23 @@
 ﻿import { useNavigate } from 'react-router-dom'
+import { useSimulationStore } from '../hooks/useSimulation'
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const { logout } = useSimulationStore()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <div className="page min-h-screen flex items-center justify-center bg-bg-primary">
+      <button
+        onClick={handleLogout}
+        className="absolute top-4 right-4 text-xs text-text-secondary border border-border-default px-3 py-1 hover:border-accent-error hover:text-accent-error transition-colors"
+      >
+        Logout
+      </button>
       <div className="w-full max-w-md border border-border-default rounded-md p-8 text-center space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-widest text-accent-success">
