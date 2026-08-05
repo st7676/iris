@@ -77,17 +77,44 @@ constraints, not a full jailbreak defense.
 
 ## Performance
 
-Measured latency (gpt-4o, single call, local network) — Commander ~2.2s, Mentor
-~2.2s, Evaluator ~2.9s. This meets the <3s target in the Technical Spec for
-Commander/Mentor, though it's close enough to the limit that it's worth watching
-under real network conditions.
+Two rounds of measurement:
+
+- **gpt-4o** (single call, local network, Days 1-14): Commander ~2.2s, Mentor
+  ~2.2s, Evaluator ~2.9s.
+- **gpt-4o-mini** (Day 20-21 benchmark, Markeriot sprint -- current default per
+  Day 15's credit-conservation decision; `tests/test_latency_benchmark.py`,
+  12 calls per agent, 0 errors across 36 live calls):
+
+  | Endpoint | min | mean | p95 | max | Under 3s target |
+  |---|---|---|---|---|---|
+  | Commander (`generate_update`) | 1.00s | 1.21s | 1.45s | 1.82s | 12/12 |
+  | Mentor (`/hint`) | 0.74s | 0.94s | 1.11s | 1.24s | 12/12 |
+  | Evaluator (`/complete`) | 2.33s | 3.10s | 4.13s | 5.23s | 8/12 |
+
+  Commander/Mentor are the two endpoints the Technical Spec's <3s target actually
+  covers, and both comfortably and *consistently* clear it on `gpt-4o-mini` --
+  faster than the earlier `gpt-4o` numbers, on top of being cheaper. Evaluator
+  isn't covered by that target (it runs once at the end, off the interactive path)
+  but is noticeably less consistent run-to-run (up to 5.2s observed); not a demo
+  risk since nothing in the UI blocks on it in real time the way Commander/Mentor
+  updates do, but worth re-running `test_latency_benchmark.py` once more right
+  before the actual pitch to catch any regression.
+
+**Safety net, verified live (not just read as code):** forced `AIMentor.provide_hint`
+to raise mid-request and confirmed the client sees a clean `503` with
+`{"detail": "AI Mentor is temporarily unavailable, try again shortly"}` -- no
+traceback, no raw error text reaches the frontend. If OpenAI has a bad moment
+during the actual pitch, this is what the audience would see instead of a crash.
 
 `OpenAIClient.call()` has two safety nets, per the "AI Latency Too High" risk
 mitigation in `IRIS_Team_Workflow.md`:
 - A request timeout (`OPENAI_TIMEOUT_SECONDS`, default 8s) so a hung call can't
   block a request (or the incident WebSocket loop) indefinitely.
-- A fallback model (`OPENAI_FALLBACK_MODEL`, default `gpt-4o-mini`) that's used
-  automatically if the primary model call times out or errors.
+- A fallback model (`OPENAI_FALLBACK_MODEL`) that's used automatically if the
+  primary model call times out or errors. Currently both `OPENAI_MODEL` and
+  `OPENAI_FALLBACK_MODEL` are set to `gpt-4o-mini` to conserve credit during
+  development/rehearsals (Day 15 decision) -- **switch `OPENAI_MODEL` back to
+  `gpt-4o` in `.env` before the actual demo**, per the sprint plan.
 
 ## Testing
 
