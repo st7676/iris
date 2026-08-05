@@ -1,11 +1,12 @@
-﻿import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import MetaBadge from '../components/common/MetaBadge'
 
 export default function HomePage() {
   const navigate = useNavigate()
 
   return (
     <div className="page min-h-screen flex items-center justify-center bg-bg-primary">
-      <div className="w-full max-w-md border border-border-default rounded-md p-8 text-center space-y-6">
+      <div className="hud-frame w-full max-w-md border border-border-default rounded-md p-8 text-center space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-widest text-accent-success">
             IRIS
@@ -13,6 +14,12 @@ export default function HomePage() {
           <p className="text-sm text-text-secondary mt-1">
             AI-Powered Cyber Training
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <MetaBadge icon="⏱" label="~15 min" />
+          <MetaBadge icon="🤖" label="AI-Powered" />
+          <MetaBadge icon="🎯" label="SOC Training" />
         </div>
 
         <div className="space-y-3">

@@ -38,3 +38,38 @@ body {
   background: var(--color-accent-success);
   border-radius: 4px;
 }
+
+/*
+ * HUD corner brackets -- inspired by https://escaperoom.autoright10.com/'s
+ * targeting-reticle corner decorations on its main panel. Applies to any
+ * container via `.hud-frame`; the accent color can be overridden per-element
+ * with the `--hud-color` custom property (defaults to accent-success).
+ */
+.hud-frame {
+  position: relative;
+  --hud-color: var(--color-accent-success);
+}
+.hud-frame::before,
+.hud-frame::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-color: var(--hud-color);
+  border-style: solid;
+  border-width: 0;
+  filter: drop-shadow(0 0 3px var(--hud-color));
+}
+.hud-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+.hud-frame::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}

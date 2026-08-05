@@ -82,7 +82,10 @@ export default function SimulationPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">
         <div className="md:col-span-2 space-y-4">
-          <div className="border border-border-default rounded p-4">
+          <div
+            className="hud-frame border border-border-default rounded p-4"
+            style={{ ['--hud-color' as string]: 'var(--color-accent-danger)' }}
+          >
             <h2 className="text-sm uppercase text-text-secondary mb-2">Alert</h2>
             <p className="text-sm">{incident.alertMessage}</p>
           </div>
@@ -92,7 +95,7 @@ export default function SimulationPage() {
             <EventTimeline steps={timeline} />
           </div>
 
-          <div className="border border-border-default rounded p-4">
+          <div className="hud-frame border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Evidence</h2>
             <div className="space-y-2">
               {evidence.length === 0 && (
