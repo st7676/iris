@@ -95,19 +95,6 @@ export default function HomePage() {
           </button>
         </div>
       </div>
-
-        <div className="border-t border-border-default pt-4 text-left">
-          <p className="text-xs text-text-secondary uppercase mb-1">
-            Latest Simulation
-          </p>
-          <p className="text-sm text-text-primary">
-            Operation Silent Login
-          </p>
-          <p className="text-xs text-text-secondary">
-            Score: 89% | Severity: Medium
-          </p>
-        </div>
-      </div>
     </div>
   )
 }
