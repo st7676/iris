@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSimulationStore } from '../hooks/useSimulation'
-import Toast from '../components/common/Toast'
-import Spinner from '../components/common/Spinner'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -95,10 +93,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full border border-accent-success text-accent-success py-2 px-4 uppercase tracking-wide text-sm hover:bg-accent-success/10 hover:shadow-[0_0_10px_rgba(0,255,65,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full border border-accent-success text-accent-success py-2 px-4 uppercase tracking-wide text-sm hover:bg-accent-success/10 hover:shadow-[0_0_10px_rgba(0,255,65,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading && <Spinner className="w-4 h-4" />}
-            {showRegister ? 'Create Account' : 'Log In'}
+            {loading ? 'Loading...' : showRegister ? 'Create Account' : 'Log In'}
           </button>
         </form>
 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Spinner from '../components/common/Spinner'
-import Toast from '../components/common/Toast'
 
 interface DashboardData {
   total_sessions: number
