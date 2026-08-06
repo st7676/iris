@@ -23,9 +23,23 @@
 
 body {
   background-color: var(--color-bg-primary);
+  /* Subtle grid texture, inspired by escaperoom.autoright10.com's
+     dot/grid-lined background -- gives the flat dark panels some depth
+     instead of a plain solid fill. */
+  background-image:
+    linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
   color: var(--color-text-primary);
   font-family: var(--font-mono);
   line-height: 1.6;
+}
+
+/* Big, dramatic "mission briefing" headline treatment -- used sparingly
+   (HomePage hero, SimulationPage alert banner) where the design should
+   feel cinematic rather than like a dense dashboard. */
+.briefing-glow {
+  text-shadow: 0 0 24px currentColor;
 }
 
 ::-webkit-scrollbar {
@@ -37,4 +51,39 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--color-accent-success);
   border-radius: 4px;
+}
+
+/*
+ * HUD corner brackets -- inspired by https://escaperoom.autoright10.com/'s
+ * targeting-reticle corner decorations on its main panel. Applies to any
+ * container via `.hud-frame`; the accent color can be overridden per-element
+ * with the `--hud-color` custom property (defaults to accent-success).
+ */
+.hud-frame {
+  position: relative;
+  --hud-color: var(--color-accent-success);
+}
+.hud-frame::before,
+.hud-frame::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  border-color: var(--hud-color);
+  border-style: solid;
+  border-width: 0;
+  filter: drop-shadow(0 0 6px var(--hud-color));
+}
+.hud-frame::before {
+  top: -2px;
+  left: -2px;
+  border-top-width: 3px;
+  border-left-width: 3px;
+}
+.hud-frame::after {
+  bottom: -2px;
+  right: -2px;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
 }
