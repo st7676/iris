@@ -34,8 +34,14 @@ not to. `AIEvaluator._strip_markdown_fence` handles this before parsing.
 
 ## Cost estimates
 
-At `gpt-4o` pricing, a full simulation (1 commander update + 1-2 mentor hints + 1
-evaluator call) runs well under $0.10 per session (~500 max_tokens per call).
+Measured directly from `response.usage` on a real run (not a guess): one Commander
+update + one Mentor hint + one Evaluator call used **1,385 tokens total** (1,204
+input / 181 output), which is **~$0.005** at `gpt-4o` pricing ($2.50/1M input,
+$10/1M output). A full session (Commander fires on every `/investigate` call, so
+realistically 3-5 updates + 1-2 hints + 1 evaluation) comes out well under $0.02 in
+practice — the earlier "$0.10" figure here was an untested upper-bound guess; the
+real number is roughly 5-10x cheaper. Token usage for every call is captured in
+`OpenAIClient.last_usage` and included in the observability log (see below).
 
 ## Backend integration
 
@@ -49,11 +55,11 @@ path in the image) or by walking up from its own location looking for a sibling
 
 Integration points wired into the Backend:
 
-| Backend endpoint | Agent |
-|---|---|
-| `WS /ws/incidents/{id}` | `AICommander.generate_update` |
-| `POST /api/incidents/{id}/hint` | `AIMentor.provide_hint` |
-| `POST /api/incidents/{id}/complete` | `AIEvaluator.evaluate` |
+| Backend endpoint | Agent | Trigger |
+|---|---|---|
+| `POST /api/incidents/{id}/investigate` | `AICommander.generate_update` | automatic -- broadcasts to every open `WS /ws/incidents/{id}` connection for that incident via `app/core/ws_manager.py`, no client prompting needed |
+| `POST /api/incidents/{id}/hint` | `AIMentor.provide_hint` | on request |
+| `POST /api/incidents/{id}/complete` | `AIEvaluator.evaluate` | on request |
 
 `AIEvaluator.evaluate` compares `scenarios.ideal_reasoning_chain` (MongoDB) against
 the incident's `action_log`, which the Backend maps into the same `{step, action}`
@@ -82,12 +88,17 @@ Measured latency (gpt-4o, single call, local network) — Commander ~2.2s, Mento
 Commander/Mentor, though it's close enough to the limit that it's worth watching
 under real network conditions.
 
-`OpenAIClient.call()` has two safety nets, per the "AI Latency Too High" risk
-mitigation in `IRIS_Team_Workflow.md`:
+`OpenAIClient.call()` has three safety nets, per the "AI Latency Too High" /
+"API rate limit" risk mitigations in `IRIS_Team_Workflow.md` and Technical Spec
+Section 10:
 - A request timeout (`OPENAI_TIMEOUT_SECONDS`, default 8s) so a hung call can't
   block a request (or the incident WebSocket loop) indefinitely.
+- Retry with exponential backoff (`OPENAI_MAX_RATE_LIMIT_RETRIES`, default 2 --
+  so up to 3 attempts total) specifically on `RateLimitError` (HTTP 429), since
+  those are transient. Verified by simulating a flaky API that fails twice then
+  succeeds.
 - A fallback model (`OPENAI_FALLBACK_MODEL`, default `gpt-4o-mini`) that's used
-  automatically if the primary model call times out or errors.
+  automatically if the primary model still errors after retries.
 
 ## Testing
 
@@ -106,6 +117,9 @@ mitigation in `IRIS_Team_Workflow.md`:
   unformatted as the system role via `get_system_prompt()`, once fully formatted
   as the user role). Works correctly, just wastes tokens — worth tightening by
   separating fixed instructions (system role) from per-call context (user role).
-- `POST /complete` doesn't write to the PostgreSQL `session_scores` table yet —
-  needs a real Postgres `users` row to satisfy the foreign key, which is a
-  Users/Auth concern outside AI integration scope.
+- Malformed JSON from AI Evaluator is caught at the Backend endpoint level
+  (`/complete` returns a 503 instead of crashing) but isn't retried/repaired at
+  the `AIEvaluator` level itself -- a one-shot "your last response wasn't valid
+  JSON, try again" retry would recover more sessions instead of failing them.
+- No caching layer (Technical Spec marks this as optional/low-priority for the
+  MVP: "unlikely in a POC, but good practice").
