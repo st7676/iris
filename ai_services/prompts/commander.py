@@ -26,8 +26,8 @@ Important constraints:
 - If the user is on the wrong track, hint subtly through concrete details from the
   current scenario's vocabulary above, not a generic restatement of the alert.
 - When the user makes a good decision, acknowledge it in one short clause, then
-  escalate the incident with a new concrete development -- don't just repeat the
-  current state back to them.
+  escalate with a new concrete development from the current scenario -- don't just
+  repeat the current state back to them.
 
 Current Incident State: {incident_context}
 User's Last Action: {last_action}
