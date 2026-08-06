@@ -255,3 +255,35 @@ as designed: `complete` returns `503` instead of crashing, the incident stays
 `/users/{id}/history`, and `/instructor/dashboard` all correctly show nothing recorded
 for that incident. `pytest tests/ -v` (34 tests, mocked AI) passes in full regardless,
 since it doesn't depend on the container's network path to OpenAI.
+
+### Day 15, resolved: `CERTIFICATE_VERIFY_FAILED` inside Docker, but not on host
+
+Root cause: a local TLS-intercepting tool on the host machine (a corporate proxy,
+antivirus HTTPS scanning, a content filter, a VPN client, etc.) was re-signing outbound
+HTTPS with its own locally-trusted root CA. Windows trusts that root (so the host
+worked); the Linux container's separate CA store didn't (so it failed). Diagnose with:
+
+```bash
+docker run --rm alpine sh -c "apk add --no-cache openssl >/dev/null; \
+  openssl s_client -connect api.openai.com:443 -servername api.openai.com -showcerts 2>/dev/null | \
+  openssl x509 -noout -issuer"
+```
+
+If the issuer isn't a recognizable public CA (Let's Encrypt, DigiCert, etc.), that's a
+local interceptor. **This is fixed per machine, not in this repo** -- the intercepting
+CA is unique to each developer's own setup and wouldn't help (or would even be
+misleading) on anyone else's:
+
+1. Export the interceptor's root CA as PEM into `backend/.local/` (gitignored).
+2. Add a `backend/docker-compose.override.yml` (also gitignored -- `docker-compose`
+   loads it automatically alongside `docker-compose.yml`) that mounts the cert into
+   `/usr/local/share/ca-certificates/`, runs `update-ca-certificates`, and sets
+   `SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt` (httpx -- and therefore the OpenAI
+   SDK -- honors that env var ahead of its bundled `certifi` CA list).
+
+Teammates without that local override file are completely unaffected; `docker-compose
+up` behaves exactly as before for them.
+
+With this in place, `/complete` now reaches OpenAI successfully end to end (confirmed:
+`openai.RateLimitError: insufficient_quota` came back from a real API response, not a
+connection error -- a separate, unrelated billing matter, not a code or infra issue).
