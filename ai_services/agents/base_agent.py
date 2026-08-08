@@ -14,12 +14,12 @@ class BaseAgent(ABC):
 
     def call(self, user_message: str) -> str:
         system_prompt = self.get_system_prompt()
-        response = self.client.call(system_prompt, user_message)
+        response, usage = self.client.call(system_prompt, user_message)
         log_ai_call(
             self.__class__.__name__,
             system_prompt,
             user_message,
             response,
-            usage=self.client.last_usage,
+            usage=usage,
         )
         return response

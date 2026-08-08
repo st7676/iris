@@ -27,16 +27,24 @@ class OpenAIClient:
         # indefinitely -- not the expected happy path.
         self.timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", 8))
         self.max_rate_limit_retries = int(os.getenv("OPENAI_MAX_RATE_LIMIT_RETRIES", 2))
-        # Token usage from the most recent call, for cost tracking (see
-        # utils/logger.py). None until the first call completes.
-        self.last_usage: dict | None = None
 
-    def call(self, system_prompt: str, user_message: str) -> str:
+    def call(self, system_prompt: str, user_message: str) -> tuple[str, dict | None]:
         """
         Call OpenAI API with system + user prompt. Falls back to a
         faster/cheaper model if the primary call times out or errors, per
         the Team Workflow's "AI latency too high" risk mitigation
         (">5 sec -> fallback to GPT-3.5-turbo or mock responses").
+
+        Returns (content, usage). Usage is returned directly rather than
+        stashed on `self` (as it used to be, via a `last_usage` attribute):
+        Commander/Mentor/Evaluator are singletons wrapping one shared
+        OpenAIClient each (see backend/app/core/ai_bridge.py), and
+        concurrent requests for different incidents run on separate
+        threads (FastAPI's run_in_threadpool). Shared mutable state on
+        the client meant one thread could overwrite `last_usage` before
+        another thread read it for its own log entry -- silently
+        misattributing token counts between unrelated calls in the cost
+        log. Returning usage from the call itself makes that impossible.
         """
         messages = [
             {"role": "system", "content": system_prompt},
@@ -47,7 +55,7 @@ class OpenAIClient:
         except Exception:
             return self._request_with_retry(self.fallback_model, messages)
 
-    def _request_with_retry(self, model: str, messages: list) -> str:
+    def _request_with_retry(self, model: str, messages: list) -> tuple[str, dict | None]:
         """
         Retry with exponential backoff specifically on 429 rate limits --
         these are transient and usually resolve within a couple seconds,
@@ -66,7 +74,7 @@ class OpenAIClient:
                     time.sleep(2**attempt)  # 1s, 2s, 4s...
         raise last_error
 
-    def _request(self, model: str, messages: list) -> str:
+    def _request(self, model: str, messages: list) -> tuple[str, dict | None]:
         response = self.client.chat.completions.create(
             model=model,
             messages=messages,
@@ -74,11 +82,12 @@ class OpenAIClient:
             max_tokens=500,
             timeout=self.timeout_seconds,
         )
+        usage = None
         if response.usage:
-            self.last_usage = {
+            usage = {
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
                 "total_tokens": response.usage.total_tokens,
                 "model": model,
             }
-        return response.choices[0].message.content
+        return response.choices[0].message.content, usage
