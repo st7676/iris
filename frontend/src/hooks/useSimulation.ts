@@ -1,7 +1,11 @@
 ﻿import { create } from 'zustand'
+<<<<<<< HEAD
 
 const API_BASE = 'http://localhost:8000/api'
 const STORAGE_KEY = 'iris_user_id'
+=======
+import { API_BASE } from '../lib/constants'
+>>>>>>> f875f673b901c29a05d4d7249fd86192f2aeefed
 
 function getStoredUserId(): string | null {
   return localStorage.getItem(STORAGE_KEY)
@@ -56,21 +60,36 @@ async function startScenario(userId: string, scenarioId: string = 'silent_login_
   return res.json()
 }
 
+// Maps the UI's display labels to the machine-readable values the backend
+// expects (see backend/app/simulation/evidence.py and the scenario's
+// ideal_reasoning_chain in backend/app/db/init_db.py).
+const evidenceTypeMap: Record<string, string> = {
+  'Check Email Logs': 'email_logs',
+  'Check Auth Logs': 'auth_logs',
+}
+
+const decisionMap: Record<string, string> = {
+  'Reset Password + MFA': 'reset_password_mfa',
+  'Isolate Device': 'isolate_device',
+}
+
 async function apiInvestigate(incidentId: string, label: string) {
+  const evidenceType = evidenceTypeMap[label] ?? label
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/investigate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision: label, notes: '' }),
+    body: JSON.stringify({ evidence_type: evidenceType }),
   })
   if (!res.ok) throw new Error(`Investigate failed: ${res.status}`)
   return res.json()
 }
 
 async function apiDecide(incidentId: string, label: string) {
+  const decision = decisionMap[label] ?? label
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/decide`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision: label, notes: '' }),
+    body: JSON.stringify({ decision, notes: '' }),
   })
   if (!res.ok) throw new Error(`Decide failed: ${res.status}`)
   return res.json()
@@ -80,6 +99,7 @@ interface Incident {
   incidentId: string
   severity: 'low' | 'medium' | 'high'
   alertMessage: string
+  startedAt: string
 }
 
 interface TimelineStep {
@@ -188,6 +208,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
           incidentId: incident.incident_id,
           severity: incident.severity,
           alertMessage: incident.alert_message,
+          startedAt: incident.timestamp,
         },
         timeline: [{ label: 'Check Email Logs', status: 'current' }],
         evidence: [],
@@ -200,7 +221,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         incident: {
           incidentId: 'SF-2026-ERROR',
           severity: 'medium',
+<<<<<<< HEAD
           alertMessage: error instanceof Error ? error.message : 'Failed to load incident from server',
+=======
+          alertMessage: 'Failed to load incident from server',
+          startedAt: new Date().toISOString(),
+>>>>>>> f875f673b901c29a05d4d7249fd86192f2aeefed
         },
         timeline: [{ label: 'Check Email Logs', status: 'current' }],
         evidence: [],

@@ -15,7 +15,7 @@ export default function Scoreboard({ finalScore, breakdown }: ScoreboardProps) {
 
   return (
     <div className="space-y-4">
-      <div className="text-center">
+      <div className="hud-frame border border-border-default rounded p-6 text-center">
         <h1 className="text-lg uppercase tracking-widest text-text-secondary">
           Simulation Complete
         </h1>

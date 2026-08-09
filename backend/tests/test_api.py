@@ -144,6 +144,25 @@ def test_websocket_event_update(client):
         assert "timestamp" in data
 
 
+def test_investigate_broadcasts_commander_update_without_client_prompting(client):
+    """
+    Per the Dev3 spec (Day 9): /investigate itself should trigger AI
+    Commander and push the update live, not require the client to send a
+    WebSocket message asking for one.
+    """
+    incident_id = _start_incident(client)
+    with client.websocket_connect(f"/ws/incidents/{incident_id}") as ws:
+        response = client.post(
+            f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "auth_logs"}
+        )
+        assert response.status_code == 200
+
+        data = ws.receive_json()
+        assert data["type"] == "event_update"
+        assert data["message"] == "Mock Commander: new evidence detected."
+        assert "timestamp" in data
+
+
 def test_websocket_rejects_unknown_incident(client):
     with pytest.raises(Exception):
         with client.websocket_connect("/ws/incidents/DOES-NOT-EXIST") as ws:

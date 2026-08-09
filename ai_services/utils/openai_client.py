@@ -1,8 +1,9 @@
 import os
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 # Load ai_services/.env by absolute path, not by CWD. This module gets
 # imported both when running from ai_services/ directly (tests, main.py)
@@ -25,6 +26,10 @@ class OpenAIClient:
         # doesn't block a request (or the incident WebSocket loop)
         # indefinitely -- not the expected happy path.
         self.timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", 8))
+        self.max_rate_limit_retries = int(os.getenv("OPENAI_MAX_RATE_LIMIT_RETRIES", 2))
+        # Token usage from the most recent call, for cost tracking (see
+        # utils/logger.py). None until the first call completes.
+        self.last_usage: dict | None = None
 
     def call(self, system_prompt: str, user_message: str) -> str:
         """
@@ -38,9 +43,28 @@ class OpenAIClient:
             {"role": "user", "content": user_message},
         ]
         try:
-            return self._request(self.model, messages)
+            return self._request_with_retry(self.model, messages)
         except Exception:
-            return self._request(self.fallback_model, messages)
+            return self._request_with_retry(self.fallback_model, messages)
+
+    def _request_with_retry(self, model: str, messages: list) -> str:
+        """
+        Retry with exponential backoff specifically on 429 rate limits --
+        these are transient and usually resolve within a couple seconds,
+        so it's worth retrying the *same* model before giving up on it
+        (per Technical Spec Section 10: "API rate limit: catch, queue,
+        retry"). Other errors (timeout, 5xx, etc.) aren't retried here --
+        they bubble up to call()'s fallback-model logic instead.
+        """
+        last_error: RateLimitError | None = None
+        for attempt in range(self.max_rate_limit_retries + 1):
+            try:
+                return self._request(model, messages)
+            except RateLimitError as exc:
+                last_error = exc
+                if attempt < self.max_rate_limit_retries:
+                    time.sleep(2**attempt)  # 1s, 2s, 4s...
+        raise last_error
 
     def _request(self, model: str, messages: list) -> str:
         response = self.client.chat.completions.create(
@@ -50,4 +74,11 @@ class OpenAIClient:
             max_tokens=500,
             timeout=self.timeout_seconds,
         )
+        if response.usage:
+            self.last_usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+                "model": model,
+            }
         return response.choices[0].message.content

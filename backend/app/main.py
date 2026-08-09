@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import incidents, instructor, scenarios, users
 from app.core.logging_config import configure_logging
+from app.core.ws_manager import manager
 from app.db.init_db import init_db
 from app.db.mongodb import incidents_collection
 from app.simulation.engine import build_ai_commander_update
@@ -46,9 +47,13 @@ async def incident_websocket(websocket: WebSocket, incident_id: str) -> None:
         await websocket.close(code=4404)
         return
 
-    await websocket.accept()
+    await manager.connect(incident_id, websocket)
     try:
         while True:
+            # Server-initiated updates (e.g. from /investigate) arrive via
+            # manager.broadcast() below, not this loop. This loop only
+            # handles a client explicitly sending text as a manual trigger
+            # (kept for backward compatibility / manual testing).
             last_action = await websocket.receive_text()
             current = await incidents_collection.find_one({"incident_id": incident_id})
             try:
@@ -65,3 +70,5 @@ async def incident_websocket(websocket: WebSocket, incident_id: str) -> None:
             await websocket.send_json(update)
     except WebSocketDisconnect:
         pass
+    finally:
+        manager.disconnect(incident_id, websocket)
