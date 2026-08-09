@@ -6,18 +6,6 @@ import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
 
-async function getIncidentStatus(incidentId: string) {
-  const res = await fetch(`${API_BASE}/incidents/${incidentId}`)
-  if (!res.ok) throw new Error(`Get incident failed: ${res.status}`)
-  return res.json()
-}
-
-async function getReport(incidentId: string) {
-  const res = await fetch(`${API_BASE}/incidents/${incidentId}/report`)
-  if (!res.ok) throw new Error(`Get report failed: ${res.status}`)
-  return res.json()
-}
-
 async function completeIncident(incidentId: string) {
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/complete`, {
     method: 'POST',
@@ -25,19 +13,6 @@ async function completeIncident(incidentId: string) {
   })
   if (!res.ok) throw new Error(`Complete failed: ${res.status}`)
   return res.json()
-}
-
-// The AI Evaluator costs money and isn't perfectly deterministic, so it
-// should only run once per incident. On first arrival here the incident is
-// still "in_progress" -> POST /complete triggers it. On any later visit
-// (refresh, back button) the incident is already "completed" -> GET /report
-// re-fetches the stored score instead of generating a new one.
-async function fetchOrGenerateReport(incidentId: string) {
-  const incident = await getIncidentStatus(incidentId)
-  if (incident.status === 'completed') {
-    return getReport(incidentId)
-  }
-  return completeIncident(incidentId)
 }
 
 export default function ReportPage() {
@@ -48,28 +23,10 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-<<<<<<< HEAD
   const fetchReport = async () => {
     if (!incident) {
       setLoading(false)
       return
-=======
-  useEffect(() => {
-    const fetchReport = async () => {
-      if (!incident) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        const result = await fetchOrGenerateReport(incident.incidentId)
-        setReport(result)
-      } catch (error) {
-        console.error('Failed to fetch report:', error)
-      } finally {
-        setLoading(false)
-      }
->>>>>>> f875f673b901c29a05d4d7249fd86192f2aeefed
     }
 
     setLoading(true)

@@ -1,11 +1,7 @@
 ﻿import { create } from 'zustand'
-<<<<<<< HEAD
 
 const API_BASE = 'http://localhost:8000/api'
 const STORAGE_KEY = 'iris_user_id'
-=======
-import { API_BASE } from '../lib/constants'
->>>>>>> f875f673b901c29a05d4d7249fd86192f2aeefed
 
 function getStoredUserId(): string | null {
   return localStorage.getItem(STORAGE_KEY)
@@ -221,12 +217,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         incident: {
           incidentId: 'SF-2026-ERROR',
           severity: 'medium',
-<<<<<<< HEAD
           alertMessage: error instanceof Error ? error.message : 'Failed to load incident from server',
-=======
-          alertMessage: 'Failed to load incident from server',
           startedAt: new Date().toISOString(),
->>>>>>> f875f673b901c29a05d4d7249fd86192f2aeefed
         },
         timeline: [{ label: 'Check Email Logs', status: 'current' }],
         evidence: [],
