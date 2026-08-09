@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--reload"],
+      "port": 8000,
+      "autoPort": true,
+      "url": "http://localhost:8000"
     }
   ]
 }
