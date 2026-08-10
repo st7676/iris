@@ -92,7 +92,7 @@ export default function BriefingPage() {
           </button>
           <button
             onClick={handleBegin}
-            className="flex-1 border-2 border-accent-success bg-accent-success/10 text-accent-success py-3 px-6 uppercase tracking-widest text-sm font-bold hover:bg-accent-success/20 hover:shadow-[0_0_30px_rgba(0,255,65,0.5)] transition-all"
+            className="flex-1 border-2 border-accent-success bg-accent-success/10 text-accent-success py-3 px-6 uppercase tracking-widest text-sm font-bold hover:bg-accent-success/20 hover:shadow-[0_0_30px_rgba(217,164,65,0.5)] transition-all"
           >
             ▶ Begin Simulation
           </button>

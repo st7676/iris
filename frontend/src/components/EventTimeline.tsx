@@ -8,8 +8,8 @@ interface EventTimelineProps {
 }
 
 const statusColor = {
-  done: 'bg-accent-success shadow-[0_0_8px_rgba(0,255,65,0.6)]',
-  current: 'bg-accent-info shadow-[0_0_8px_rgba(0,153,255,0.6)] animate-pulse',
+  done: 'bg-accent-success shadow-[0_0_8px_rgba(217,164,65,0.7)]',
+  current: 'bg-accent-info shadow-[0_0_8px_rgba(79,143,191,0.7)] animate-pulse',
   pending: 'bg-border-highlight',
 }
 

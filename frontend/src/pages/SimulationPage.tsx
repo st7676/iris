@@ -135,16 +135,16 @@ export default function SimulationPage() {
     <div className="page min-h-screen bg-bg-primary text-text-primary">
       <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
 
-      <div
-        className="hud-frame mx-4 mt-4 border-2 border-accent-danger bg-accent-danger/10 rounded p-5 animate-pulse"
-        style={{ ['--hud-color' as string]: 'var(--color-accent-danger)', animationDuration: '2.5s' }}
-      >
-        <h2 className="text-xs uppercase tracking-[0.3em] text-accent-danger mb-1">
-          ⚠ Active Alert — {scenario.title}
-        </h2>
-        <p className="briefing-glow text-xl sm:text-2xl font-bold text-text-primary">
-          {incident.alertMessage}
-        </p>
+      <div className="mx-4 mt-4 overflow-hidden rounded border-2 border-accent-danger shadow-[0_0_30px_rgba(214,59,59,0.35)]">
+        <div className="flex items-center gap-2 bg-accent-danger px-4 py-1.5">
+          <span className="stamp !border-white/80 !text-white !py-0 !px-2 text-[10px]">Breaking</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-white/90">{scenario.title} — Case File Open</span>
+        </div>
+        <div className="bg-accent-danger/10 p-5">
+          <p className="font-display briefing-glow text-xl sm:text-2xl text-text-primary">
+            {incident.alertMessage}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">
@@ -154,11 +154,13 @@ export default function SimulationPage() {
             <EventTimeline steps={timeline} />
           </div>
 
-          <div className="hud-frame border border-border-default rounded p-4">
-            <h2 className="text-sm uppercase text-text-secondary mb-2">Evidence</h2>
-            <div className="space-y-2">
+          <div className="cork-board rounded p-4">
+            <h2 className="font-display text-sm uppercase tracking-wide text-paper mb-3 inline-block bg-bg-primary/70 px-2 py-1 rounded">
+              Evidence Board
+            </h2>
+            <div className="space-y-4 pt-1">
               {evidence.length === 0 && (
-                <p className="text-xs text-text-secondary">No evidence revealed yet. Investigate to find clues.</p>
+                <p className="text-xs text-[#f0e6d0] bg-black/30 rounded p-2">No evidence revealed yet. Investigate to find clues.</p>
               )}
               {evidence.map((item) => (
                 <EvidenceCard

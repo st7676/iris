@@ -4,7 +4,7 @@ import { useSimulationStore } from '../hooks/useSimulation'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { login, logout } = useSimulationStore()
+  const { login } = useSimulationStore()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -42,64 +42,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="page min-h-screen flex items-center justify-center bg-bg-primary retro-scan retro-flicker relative">
-      <button
-        onClick={() => {
-          logout()
-          navigate('/login')
-        }}
-        className="absolute top-4 right-4 text-xs text-text-secondary border-2 border-accent-info px-3 py-1 hover:border-accent-danger hover:text-accent-danger hover:shadow-[0_0_10px_rgba(255,56,96,0.5)] transition-all uppercase tracking-widest"
-        style={{ textShadow: '0 0 8px rgba(0,212,255,0.5)' }}
-      >
-        [LOGOUT]
-      </button>
-
-      <div className="w-full max-w-md retro-scan p-8 text-center space-y-8 relative" style={{
-        border: '3px solid #00ff88',
-        backgroundColor: 'rgba(10, 14, 39, 0.95)',
-        boxShadow: '0 0 30px #00ff88, inset 0 0 30px rgba(0,255,136,0.05)',
-      }}>
-        {/* HUD Corner Brackets */}
-        <div className="absolute top-2 left-2 w-6 h-6" style={{
-          borderTop: '2px solid #00ff88',
-          borderLeft: '2px solid #00ff88',
-        }} />
-        <div className="absolute top-2 right-2 w-6 h-6" style={{
-          borderTop: '2px solid #00ff88',
-          borderRight: '2px solid #00ff88',
-        }} />
-        <div className="absolute bottom-2 left-2 w-6 h-6" style={{
-          borderBottom: '2px solid #00ff88',
-          borderLeft: '2px solid #00ff88',
-        }} />
-        <div className="absolute bottom-2 right-2 w-6 h-6" style={{
-          borderBottom: '2px solid #00ff88',
-          borderRight: '2px solid #00ff88',
-        }} />
-
-        <div>
-          <h1 className="text-4xl font-bold tracking-widest retro-glow" style={{
-            fontFamily: "'Courier New', monospace",
-            letterSpacing: '0.2em',
-          }}>
-            ▌IRIS▌
+    <div className="page min-h-screen flex items-center justify-center bg-bg-primary px-4">
+      <div className="case-folder hud-frame w-full max-w-md p-8 pt-10 space-y-6">
+        <div className="text-center">
+          <span className="stamp text-accent-danger text-[10px]">Restricted Access</span>
+          <h1 className="font-display briefing-glow mt-3 text-3xl tracking-widest">
+            IRIS
           </h1>
-          <p className="text-xs text-text-secondary mt-3 uppercase tracking-widest" style={{
-            fontFamily: "'Courier New', monospace",
-            textShadow: '0 0 8px rgba(0,212,255,0.3)',
-          }}>
-            AI-Powered Cyber Training
+          <p className="mt-2 text-xs uppercase tracking-widest opacity-70">
+            Case File Access Terminal
           </p>
-          <div className="mt-4 h-px bg-gradient-to-r from-transparent via-accent-success to-transparent" />
         </div>
 
-        <form onSubmit={showRegister ? handleRegister : handleLogin} className="space-y-5">
+        <form onSubmit={showRegister ? handleRegister : handleLogin} className="space-y-4">
           <div className="text-left">
-            <label className="text-xs text-accent-info uppercase mb-2 block tracking-widest" style={{
-              textShadow: '0 0 8px rgba(0,212,255,0.5)',
-              fontFamily: "'Courier New', monospace",
-            }}>
-              ► Username
+            <label className="text-xs uppercase mb-1 block tracking-widest opacity-80">
+              Agent Codename
             </label>
             <input
               type="text"
@@ -107,25 +65,14 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="agent_codename"
               disabled={loading}
-              className="w-full px-4 py-2 text-text-primary placeholder-text-secondary/50 focus:outline-none disabled:opacity-50 uppercase tracking-wide"
-              style={{
-                backgroundColor: 'rgba(15, 19, 53, 0.8)',
-                border: '2px solid #00ff88',
-                boxShadow: 'inset 0 0 10px rgba(0,255,136,0.1)',
-                fontFamily: "'Courier New', monospace",
-                color: '#00ff88',
-                textShadow: '0 0 5px rgba(0,255,136,0.5)',
-              }}
+              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/40 focus:outline-none focus:border-accent-success disabled:opacity-50"
               required
             />
           </div>
 
           <div className="text-left">
-            <label className="text-xs text-accent-info uppercase mb-2 block tracking-widest" style={{
-              textShadow: '0 0 8px rgba(0,212,255,0.5)',
-              fontFamily: "'Courier New', monospace",
-            }}>
-              ► Password
+            <label className="text-xs uppercase mb-1 block tracking-widest opacity-80">
+              Passphrase
             </label>
             <input
               type="password"
@@ -133,27 +80,13 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••••••"
               disabled={loading}
-              className="w-full px-4 py-2 text-text-primary placeholder-text-secondary/50 focus:outline-none disabled:opacity-50"
-              style={{
-                backgroundColor: 'rgba(15, 19, 53, 0.8)',
-                border: '2px solid #00ff88',
-                boxShadow: 'inset 0 0 10px rgba(0,255,136,0.1)',
-                fontFamily: "'Courier New', monospace",
-                color: '#00ff88',
-                textShadow: '0 0 5px rgba(0,255,136,0.5)',
-              }}
+              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/40 focus:outline-none focus:border-accent-success disabled:opacity-50"
               required
             />
           </div>
 
           {error && (
-            <div className="p-3 uppercase text-xs tracking-widest" style={{
-              backgroundColor: 'rgba(255, 56, 96, 0.1)',
-              border: '2px solid #ff3860',
-              color: '#ff3860',
-              fontFamily: "'Courier New', monospace",
-              textShadow: '0 0 8px rgba(255,56,96,0.5)',
-            }}>
+            <div className="border-2 border-accent-danger bg-accent-danger/10 text-accent-danger p-3 text-xs uppercase tracking-wide">
               ✗ {error}
             </div>
           )}
@@ -161,36 +94,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 uppercase tracking-widest text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              border: '2px solid #00ff88',
-              color: '#00ff88',
-              backgroundColor: 'rgba(0,255,136,0.05)',
-              fontFamily: "'Courier New', monospace",
-              textShadow: '0 0 10px #00ff88',
-              boxShadow: loading
-                ? '0 0 15px #ff6b35'
-                : '0 0 20px #00ff88, inset 0 0 20px rgba(0,255,136,0.1)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 30px #00ff88, inset 0 0 30px rgba(0,255,136,0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 20px #00ff88, inset 0 0 20px rgba(0,255,136,0.1)'
-            }}
+            className="w-full py-3 px-4 uppercase tracking-widest text-sm font-bold border-2 border-accent-danger text-accent-danger hover:bg-accent-danger/10 hover:shadow-[0_0_20px_rgba(214,59,59,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? '[ PROCESSING... ]' : showRegister ? '[ CREATE ACCOUNT ]' : '[ ACCESS SYSTEM ]'}
+            {loading ? 'Processing…' : showRegister ? 'Create Account' : 'Access System'}
           </button>
         </form>
 
-        <div className="h-px bg-gradient-to-r from-transparent via-accent-success to-transparent" />
-
-        <div>
-          <p className="text-xs text-text-secondary mb-4 uppercase tracking-widest" style={{
-            fontFamily: "'Courier New', monospace",
-            textShadow: '0 0 5px rgba(0,212,255,0.3)',
-          }}>
-            {showRegister ? '> Already have access?' : '> Need credentials?'}
+        <div className="border-t border-border-default pt-4 text-center">
+          <p className="text-xs uppercase tracking-widest opacity-70 mb-3">
+            {showRegister ? 'Already have access?' : 'Need credentials?'}
           </p>
           <button
             onClick={() => {
@@ -198,22 +110,9 @@ export default function LoginPage() {
               setError('')
             }}
             disabled={loading}
-            className="w-full py-2 px-4 uppercase tracking-widest text-xs transition-all disabled:opacity-50"
-            style={{
-              border: '2px solid #00d4ff',
-              color: '#00d4ff',
-              backgroundColor: 'transparent',
-              fontFamily: "'Courier New', monospace",
-              textShadow: '0 0 8px rgba(0,212,255,0.5)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 20px #00d4ff'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = 'none'
-            }}
+            className="w-full py-2 px-4 uppercase tracking-widest text-xs border-2 border-accent-info text-accent-info hover:bg-accent-info/10 transition-all disabled:opacity-50"
           >
-            {showRegister ? '[ RETURN TO LOGIN ]' : '[ REGISTER NEW AGENT ]'}
+            {showRegister ? 'Return to Login' : 'Register New Agent'}
           </button>
         </div>
       </div>
