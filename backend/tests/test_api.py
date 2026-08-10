@@ -42,6 +42,45 @@ def test_openapi_docs_available(client):
     assert "/api/incidents/{incident_id}" in paths
 
 
+def test_register_degrades_gracefully_when_postgres_unreachable(client, monkeypatch):
+    """
+    /register is the very first request the Frontend makes on every "Start
+    Simulation" click (see useSimulation.ts) -- if it hard-fails whenever
+    Postgres is down, the entire Mongo-backed simulation becomes
+    unreachable from the UI even though the simulation itself doesn't
+    need Postgres. Demo-critical: this is what happens if Postgres isn't
+    up on presentation day.
+    """
+    from sqlalchemy.exc import OperationalError
+
+    from app.deps import get_db
+    from app.main import app
+
+    class _BrokenSession:
+        def query(self, *args, **kwargs):
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        def rollback(self):
+            pass
+
+    def _broken_get_db():
+        yield _BrokenSession()
+
+    app.dependency_overrides[get_db] = _broken_get_db
+    try:
+        response = client.post(
+            "/api/users/register",
+            json={"username": "offline_user", "email": "offline@example.com", "password": "StrongPassw0rd!"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["username"] == "offline_user"
+    assert "id" in body  # a real (ephemeral) UUID, so scenario/start etc. still work
+
+
 def test_start_scenario(client):
     user_id = _register_user(client)
     response = client.post(
