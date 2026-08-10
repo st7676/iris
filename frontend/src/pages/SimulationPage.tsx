@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
@@ -10,6 +10,7 @@ import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
+import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -20,15 +21,22 @@ const mockLogs = [
 
 export default function SimulationPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { incident, timeline, evidence, startSimulation, investigateEvidence, decide, completeSimulation } =
     useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
+  // Scenario picked on HomePage, passed via navigation state (see
+  // navigate('/simulation', { state: { scenarioId } })). Falls back to
+  // the default if this page is reached directly (e.g. a refresh).
+  const requestedScenarioId =
+    (location.state as { scenarioId?: string } | null)?.scenarioId ?? DEFAULT_SCENARIO_ID
+
   useEffect(() => {
     if (!incident) {
-      startSimulation()
+      startSimulation(requestedScenarioId)
     }
-  }, [incident, startSimulation])
+  }, [incident, requestedScenarioId, startSimulation])
 
   useWebSocket(incident?.incidentId || '')
 
@@ -76,6 +84,8 @@ export default function SimulationPage() {
     )
   }
 
+  const scenario = SCENARIOS[incident.scenarioId] ?? SCENARIOS[DEFAULT_SCENARIO_ID]
+
   return (
     <div className="page min-h-screen bg-bg-primary text-text-primary">
       <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
@@ -85,7 +95,7 @@ export default function SimulationPage() {
         style={{ ['--hud-color' as string]: 'var(--color-accent-danger)', animationDuration: '2.5s' }}
       >
         <h2 className="text-xs uppercase tracking-[0.3em] text-accent-danger mb-1">
-          ⚠ Active Alert
+          ⚠ Active Alert — {scenario.title}
         </h2>
         <p className="briefing-glow text-xl sm:text-2xl font-bold text-text-primary">
           {incident.alertMessage}
@@ -128,10 +138,21 @@ export default function SimulationPage() {
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Actions</h2>
             <div className="flex flex-wrap gap-2">
-              <ActionButton label="Check Email Logs" onClick={() => handleInvestigate('Check Email Logs')} />
-              <ActionButton label="Check Auth Logs" onClick={() => handleInvestigate('Check Auth Logs')} />
-              <ActionButton label="Reset Password + MFA" onClick={() => handleDecide('Reset Password + MFA')} />
-              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleDecide('Isolate Device')} />
+              {scenario.investigativeActions.map((action) => (
+                <ActionButton
+                  key={action.label}
+                  label={action.label}
+                  onClick={() => handleInvestigate(action.label)}
+                />
+              ))}
+              {scenario.responseActions.map((action) => (
+                <ActionButton
+                  key={action.label}
+                  label={action.label}
+                  variant={action.variant ?? 'default'}
+                  onClick={() => handleDecide(action.label)}
+                />
+              ))}
               <ActionButton label="💡 Get Hint" onClick={handleGetHint} variant="secondary" />
             </div>
           </div>

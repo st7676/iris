@@ -19,11 +19,11 @@ def _register_user(client) -> str:
     return response.json()["id"]
 
 
-def _start_incident(client) -> str:
+def _start_incident(client, scenario_id: str = "silent_login_v1") -> str:
     user_id = _register_user(client)
     response = client.post(
-        "/api/scenarios/silent_login_v1/start",
-        json={"scenario_id": "silent_login_v1", "user_id": user_id},
+        f"/api/scenarios/{scenario_id}/start",
+        json={"scenario_id": scenario_id, "user_id": user_id},
     )
     return response.json()["incident_id"]
 
@@ -107,6 +107,59 @@ def test_investigate_wrong_evidence_raises_severity(client):
     )
     assert response.status_code == 200
     assert response.json()["severity"] == "high"
+
+
+def test_start_insider_threat_scenario(client):
+    user_id = _register_user(client)
+    response = client.post(
+        "/api/scenarios/insider_threat_v1/start",
+        json={"scenario_id": "insider_threat_v1", "user_id": user_id},
+    )
+    assert response.status_code == 201
+    assert response.json()["scenario_id"] == "insider_threat_v1"
+    assert "Departing employee" in response.json()["alert_message"]
+
+
+def test_investigate_quick_hr_status_lowers_severity_for_insider_threat(client):
+    """
+    insider_threat_v1 has its own "check this first" evidence type
+    (hr_status, not auth_logs) -- branching_logic must be scenario-aware,
+    not hardcoded to Silent Login's vocabulary.
+    """
+    incident_id = _start_incident(client, scenario_id="insider_threat_v1")
+    response = client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "hr_status"}
+    )
+    assert response.status_code == 200
+    assert response.json()["severity"] == "low"
+
+
+def test_investigate_wrong_evidence_raises_severity_for_insider_threat(client):
+    incident_id = _start_incident(client, scenario_id="insider_threat_v1")
+    response = client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "usb_device_logs"}
+    )
+    assert response.status_code == 200
+    assert response.json()["severity"] == "high"
+
+
+def test_complete_insider_threat_scenario(client):
+    incident_id = _start_incident(client, scenario_id="insider_threat_v1")
+    client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "hr_status"}
+    )
+    client.post(
+        f"/api/incidents/{incident_id}/decide", json={"decision": "revoke_access"}
+    )
+
+    response = client.post(f"/api/incidents/{incident_id}/complete")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["your_chain"] == [
+        {"step": 1, "action": "check_hr_status"},
+        {"step": 2, "action": "revoke_access"},
+    ]
+    assert body["ideal_chain"][0]["action"] == "check_hr_status"
 
 
 def test_investigate_incident_not_found(client):

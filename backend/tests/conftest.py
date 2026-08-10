@@ -23,6 +23,19 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
+INSIDER_THREAT_SCENARIO = {
+    "scenario_id": "insider_threat_v1",
+    "title": "Insider Threat",
+    "initial_severity": "medium",
+    "initial_alert_message": "Departing employee accessed sensitive files outside business hours.",
+    "ideal_reasoning_chain": [
+        {"step": 1, "action": "check_hr_status", "rationale": "Confirm offboarding status first"},
+        {"step": 2, "action": "check_file_access_logs", "rationale": "Identify what was accessed"},
+        {"step": 3, "action": "check_usb_device_logs", "rationale": "Check for data exfiltration via USB"},
+        {"step": 4, "action": "revoke_access", "rationale": "Contain by revoking access immediately"},
+    ],
+}
+
 
 @pytest.fixture
 def mongo_db(monkeypatch):
@@ -42,6 +55,7 @@ def mongo_db(monkeypatch):
     monkeypatch.setattr(main_module, "incidents_collection", mock_db["incidents"])
 
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))
+    asyncio.run(mock_db["scenarios"].insert_one(dict(INSIDER_THREAT_SCENARIO)))
     return mock_db
 
 

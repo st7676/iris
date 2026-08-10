@@ -1,5 +1,6 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 import { API_BASE } from '../lib/constants'
+import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
 
 async function registerUser() {
   const timestamp = Date.now()
@@ -16,7 +17,7 @@ async function registerUser() {
   return res.json()
 }
 
-async function startScenario(userId: string, scenarioId: string = 'silent_login_v1') {
+async function startScenario(userId: string, scenarioId: string) {
   const res = await fetch(`${API_BASE}/scenarios/${scenarioId}/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,21 +27,23 @@ async function startScenario(userId: string, scenarioId: string = 'silent_login_
   return res.json()
 }
 
-// Maps the UI's display labels to the machine-readable values the backend
-// expects (see backend/app/simulation/evidence.py and the scenario's
-// ideal_reasoning_chain in backend/app/db/init_db.py).
-const evidenceTypeMap: Record<string, string> = {
-  'Check Email Logs': 'email_logs',
-  'Check Auth Logs': 'auth_logs',
+// Resolves a UI label ("Check HR Status") to the machine-readable
+// evidence_type/decision value the backend expects, per the current
+// scenario's config (see lib/scenarios.ts). Falls back to the label
+// itself if not found, so a typo shows up as a clear 4xx from the API
+// rather than silently vanishing.
+function resolveEvidenceType(scenarioId: string, label: string): string {
+  const action = SCENARIOS[scenarioId]?.investigativeActions.find((a) => a.label === label)
+  return action?.evidenceType ?? label
 }
 
-const decisionMap: Record<string, string> = {
-  'Reset Password + MFA': 'reset_password_mfa',
-  'Isolate Device': 'isolate_device',
+function resolveDecision(scenarioId: string, label: string): string {
+  const action = SCENARIOS[scenarioId]?.responseActions.find((a) => a.label === label)
+  return action?.decision ?? label
 }
 
-async function apiInvestigate(incidentId: string, label: string) {
-  const evidenceType = evidenceTypeMap[label] ?? label
+async function apiInvestigate(incidentId: string, scenarioId: string, label: string) {
+  const evidenceType = resolveEvidenceType(scenarioId, label)
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/investigate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -50,8 +53,8 @@ async function apiInvestigate(incidentId: string, label: string) {
   return res.json()
 }
 
-async function apiDecide(incidentId: string, label: string) {
-  const decision = decisionMap[label] ?? label
+async function apiDecide(incidentId: string, scenarioId: string, label: string) {
+  const decision = resolveDecision(scenarioId, label)
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/decide`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -63,6 +66,7 @@ async function apiDecide(incidentId: string, label: string) {
 
 interface Incident {
   incidentId: string
+  scenarioId: string
   severity: 'low' | 'medium' | 'high'
   alertMessage: string
   startedAt: string
@@ -82,41 +86,6 @@ interface Evidence {
   timestamp: string
 }
 
-const evidenceLibrary: Record<string, Evidence> = {
-  'Check Email Logs': {
-    id: 'email',
-    icon: '📧',
-    title: 'Email Logs',
-    description: 'Phishing email from suspicious@phishing.site',
-    revealedAtStep: 1,
-    timestamp: '2026-01-15 10:30',
-  },
-  'Check Auth Logs': {
-    id: 'auth',
-    icon: '🔐',
-    title: 'Authentication Logs',
-    description: '5x failed login attempts, then success from new device',
-    revealedAtStep: 2,
-    timestamp: '2026-01-15 10:35',
-  },
-  'Reset Password + MFA': {
-    id: 'reset',
-    icon: '🔑',
-    title: 'Password Reset',
-    description: 'Password reset and MFA enabled for affected account',
-    revealedAtStep: 3,
-    timestamp: '2026-01-15 10:40',
-  },
-  'Isolate Device': {
-    id: 'isolate',
-    icon: '🚫',
-    title: 'Device Isolated',
-    description: 'Unrecognized device disconnected from network',
-    revealedAtStep: 4,
-    timestamp: '2026-01-15 10:42',
-  },
-}
-
 interface ActionLogEntry {
   label: string
   type: 'investigate' | 'decide'
@@ -129,9 +98,9 @@ interface SimulationState {
   actionLog: ActionLogEntry[]
   completed: boolean
   userId: string | null
-  startSimulation: () => void
-  investigateEvidence: (evidenceType: string) => void
-  decide: (action: string) => void
+  startSimulation: (scenarioId?: string) => void
+  investigateEvidence: (label: string) => void
+  decide: (label: string) => void
   completeSimulation: () => void
 }
 
@@ -143,18 +112,20 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   completed: false,
   userId: null,
 
-  startSimulation: async () => {
+  startSimulation: async (scenarioId: string = DEFAULT_SCENARIO_ID) => {
+    const firstAction = SCENARIOS[scenarioId]?.investigativeActions[0]?.label ?? ''
     try {
       const user = await registerUser()
-      const incident = await startScenario(user.id)
+      const incident = await startScenario(user.id, scenarioId)
       set({
         incident: {
           incidentId: incident.incident_id,
+          scenarioId,
           severity: incident.severity,
           alertMessage: incident.alert_message,
           startedAt: incident.timestamp,
         },
-        timeline: [{ label: 'Check Email Logs', status: 'current' }],
+        timeline: firstAction ? [{ label: firstAction, status: 'current' }] : [],
         evidence: [],
         actionLog: [],
         completed: false,
@@ -165,11 +136,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       set({
         incident: {
           incidentId: 'SF-2026-ERROR',
+          scenarioId,
           severity: 'medium',
           alertMessage: 'Failed to load incident from server',
           startedAt: new Date().toISOString(),
         },
-        timeline: [{ label: 'Check Email Logs', status: 'current' }],
+        timeline: firstAction ? [{ label: firstAction, status: 'current' }] : [],
         evidence: [],
         actionLog: [],
         completed: false,
@@ -178,15 +150,15 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     }
   },
 
-  investigateEvidence: async (evidenceType: string) => {
+  investigateEvidence: async (label: string) => {
     const state = useSimulationStore.getState()
     if (!state.incident) return
 
     try {
-      await apiInvestigate(state.incident.incidentId, evidenceType)
+      await apiInvestigate(state.incident.incidentId, state.incident.scenarioId, label)
 
-      const alreadyInTimeline = state.timeline.some((step) => step.label === evidenceType)
-      const newEvidence = evidenceLibrary[evidenceType]
+      const alreadyInTimeline = state.timeline.some((step) => step.label === label)
+      const newEvidence = SCENARIOS[state.incident.scenarioId]?.evidenceLibrary[label]
       const alreadyRevealed = state.evidence.some((e) => e.id === newEvidence?.id)
 
       const updatedTimeline = state.timeline.map((step) =>
@@ -196,25 +168,25 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       set({
         timeline: alreadyInTimeline
           ? updatedTimeline
-          : [...updatedTimeline, { label: evidenceType, status: 'current' as const }],
+          : [...updatedTimeline, { label, status: 'current' as const }],
         evidence:
           newEvidence && !alreadyRevealed ? [...state.evidence, newEvidence] : state.evidence,
-        actionLog: [...state.actionLog, { label: evidenceType, type: 'investigate' }],
+        actionLog: [...state.actionLog, { label, type: 'investigate' }],
       })
     } catch (error) {
       console.error('Failed to investigate:', error)
     }
   },
 
-  decide: async (action: string) => {
+  decide: async (label: string) => {
     const state = useSimulationStore.getState()
     if (!state.incident) return
 
     try {
-      await apiDecide(state.incident.incidentId, action)
+      await apiDecide(state.incident.incidentId, state.incident.scenarioId, label)
 
-      const alreadyInTimeline = state.timeline.some((step) => step.label === action)
-      const newEvidence = evidenceLibrary[action]
+      const alreadyInTimeline = state.timeline.some((step) => step.label === label)
+      const newEvidence = SCENARIOS[state.incident.scenarioId]?.evidenceLibrary[label]
       const alreadyRevealed = state.evidence.some((e) => e.id === newEvidence?.id)
 
       const updatedTimeline = state.timeline.map((step) =>
@@ -224,10 +196,10 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       set({
         timeline: alreadyInTimeline
           ? updatedTimeline
-          : [...updatedTimeline, { label: action, status: 'current' as const }],
+          : [...updatedTimeline, { label, status: 'current' as const }],
         evidence:
           newEvidence && !alreadyRevealed ? [...state.evidence, newEvidence] : state.evidence,
-        actionLog: [...state.actionLog, { label: action, type: 'decide' as const }],
+        actionLog: [...state.actionLog, { label, type: 'decide' as const }],
       })
     } catch (error) {
       console.error('Failed to decide:', error)

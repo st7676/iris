@@ -1,8 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import MetaBadge from '../components/common/MetaBadge'
+import { SCENARIOS } from '../lib/scenarios'
 
 export default function HomePage() {
   const navigate = useNavigate()
+
+  const startScenario = (scenarioId: string) => {
+    navigate('/simulation', { state: { scenarioId } })
+  }
 
   return (
     <div className="page min-h-screen flex flex-col items-center justify-center bg-bg-primary px-4 py-16 text-center">
@@ -28,20 +33,30 @@ export default function HomePage() {
         <MetaBadge icon="🎯" label="SOC Training" />
       </div>
 
-      <div className="mt-10 w-full max-w-sm space-y-3">
-        <button
-          onClick={() => navigate('/simulation')}
-          className="w-full border-2 border-accent-success bg-accent-success/10 text-accent-success py-4 px-6 uppercase tracking-widest text-base font-bold hover:bg-accent-success/20 hover:shadow-[0_0_30px_rgba(0,255,65,0.5)] transition-all"
-        >
-          ▶ Start New Simulation
-        </button>
-        <button
-          onClick={() => navigate('/history')}
-          className="w-full border border-border-default text-text-secondary py-2 px-4 uppercase tracking-wide text-sm hover:border-border-highlight transition-all"
-        >
-          My History
-        </button>
+      <p className="mt-10 text-xs uppercase tracking-widest text-text-secondary">
+        Choose Your Incident
+      </p>
+      <div className="mt-3 grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+        {Object.values(SCENARIOS).map((scenario) => (
+          <button
+            key={scenario.id}
+            onClick={() => startScenario(scenario.id)}
+            className="hud-frame border-2 border-accent-success bg-accent-success/5 p-5 text-left hover:bg-accent-success/15 hover:shadow-[0_0_30px_rgba(0,255,65,0.4)] transition-all"
+          >
+            <p className="text-base font-bold uppercase tracking-wide text-accent-success">
+              ▶ {scenario.title}
+            </p>
+            <p className="mt-2 text-xs text-text-secondary leading-relaxed">{scenario.tagline}</p>
+          </button>
+        ))}
       </div>
+
+      <button
+        onClick={() => navigate('/history')}
+        className="mt-4 w-full max-w-2xl border border-border-default text-text-secondary py-2 px-4 uppercase tracking-wide text-sm hover:border-border-highlight transition-all"
+      >
+        My History
+      </button>
 
       <div className="hud-frame mt-10 w-full max-w-sm border border-border-default rounded p-4 text-left">
         <p className="text-xs text-text-secondary uppercase mb-1">
