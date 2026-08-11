@@ -1,6 +1,10 @@
+import logging
+import uuid
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
@@ -8,28 +12,55 @@ from app.db.postgres import SessionScore, User
 from app.deps import get_db
 from app.models.user import UserCreate, UserLogin, UserResponse
 
+logger = logging.getLogger("iris.users")
+
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
-    existing = (
-        db.query(User)
-        .filter((User.username == payload.username) | (User.email == payload.email))
-        .first()
-    )
-    if existing:
-        raise HTTPException(status_code=409, detail="Username or email already registered")
+    try:
+        existing = (
+            db.query(User)
+            .filter((User.username == payload.username) | (User.email == payload.email))
+            .first()
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="Username or email already registered")
 
-    user = User(
-        username=payload.username,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+        user = User(
+            username=payload.username,
+            email=payload.email,
+            hashed_password=hash_password(payload.password),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except OperationalError:
+        # Registration is the very first thing the Frontend does on every
+        # "Start Simulation" click (see useSimulation.ts) -- if this hard
+        # fails whenever Postgres isn't up, the entire Mongo-backed
+        # simulation is unreachable from the UI even though it doesn't
+        # actually need Postgres. Matches the same graceful-degradation
+        # pattern already used in scenarios.py (_user_exists) and
+        # incidents.py (/complete's session_scores write): don't persist
+        # a real row, but let the user through with an ephemeral id so
+        # the rest of the flow works. History/session_scores won't be
+        # available for this user until Postgres is back.
+        db.rollback()
+        logger.warning(
+            "PostgreSQL unreachable -- creating an ephemeral (non-persisted) "
+            "user for %s so the Mongo-backed simulation flow can still proceed.",
+            payload.username,
+        )
+        return User(
+            id=uuid.uuid4(),
+            username=payload.username,
+            email=payload.email,
+            hashed_password="",
+            created_at=datetime.now(timezone.utc),
+        )
 
 
 @router.post("/login", response_model=UserResponse)
