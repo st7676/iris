@@ -19,43 +19,28 @@ deterministic -- unlike the other ai_services tests, this one is safe to
 run automatically.
 """
 
-import os
-import sys
-import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-from utils.openai_client import OpenAIClient
+from conftest import mock_completion
 
 
-def _fake_response(call_index: int):
-    """Build a fake OpenAI response whose usage uniquely identifies which
-    call produced it, with an artificial delay to widen the race window."""
-    response = MagicMock()
-    response.choices = [MagicMock(message=MagicMock(content=f"response-{call_index}"))]
-    response.usage = MagicMock(
-        prompt_tokens=call_index,
-        completion_tokens=call_index * 10,
-        total_tokens=call_index * 11,
-    )
-    return response
-
-
-def test_concurrent_calls_never_cross_contaminate_usage():
-    client = OpenAIClient()
+def test_concurrent_calls_never_cross_contaminate_usage(openai_client):
+    client = openai_client
 
     def fake_create(*, model, messages, **kwargs):
         # Recover which logical call this is from the user message we
         # crafted below, and simulate network latency so overlapping
         # threads are likely if there's any shared mutable state.
         call_index = int(messages[1]["content"].split("-")[-1])
-        threading.Event().wait(0.01)
-        return _fake_response(call_index)
+        time.sleep(0.01)
+        return mock_completion(
+            f"response-{call_index}",
+            prompt_tokens=call_index,
+            completion_tokens=call_index * 10,
+            total_tokens=call_index * 11,
+        )
 
     with patch.object(client.client.chat.completions, "create", side_effect=fake_create):
         n = 50
@@ -79,8 +64,3 @@ def test_concurrent_calls_never_cross_contaminate_usage():
                 "total_tokens": i * 11,
                 "model": client.model,
             }, f"call {i} got mismatched usage {usage} -- cross-contamination from another thread"
-
-
-if __name__ == "__main__":
-    test_concurrent_calls_never_cross_contaminate_usage()
-    print("Thread-safety test passed: no cross-contamination across 50 concurrent calls.")

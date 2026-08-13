@@ -9,19 +9,12 @@ Uses a fake OpenAI client (no real API calls), so it's fast, free, and
 safe to run automatically alongside the other regression tests.
 """
 
-import os
-import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 from openai import RateLimitError
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
-from utils.openai_client import OpenAIClient
+from conftest import mock_completion
 
 
 def _rate_limit_error() -> RateLimitError:
@@ -30,15 +23,8 @@ def _rate_limit_error() -> RateLimitError:
     return RateLimitError("rate limited", response=response, body=None)
 
 
-def _success_response(content: str):
-    response = MagicMock()
-    response.choices = [MagicMock(message=MagicMock(content=content))]
-    response.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15)
-    return response
-
-
-def test_retries_and_recovers_from_a_flaky_rate_limited_api():
-    client = OpenAIClient()
+def test_retries_and_recovers_from_a_flaky_rate_limited_api(openai_client):
+    client = openai_client
     client.max_rate_limit_retries = 2
 
     call_count = {"n": 0}
@@ -47,7 +33,9 @@ def test_retries_and_recovers_from_a_flaky_rate_limited_api():
         call_count["n"] += 1
         if call_count["n"] <= 2:
             raise _rate_limit_error()
-        return _success_response("recovered after retries")
+        return mock_completion(
+            "recovered after retries", prompt_tokens=10, completion_tokens=5, total_tokens=15
+        )
 
     with patch.object(
         client.client.chat.completions, "create", side_effect=flaky_then_succeeds
@@ -59,8 +47,8 @@ def test_retries_and_recovers_from_a_flaky_rate_limited_api():
     assert call_count["n"] == 3  # 1 initial attempt + 2 retries
 
 
-def test_gives_up_after_max_retries_and_falls_back_to_the_fallback_model():
-    client = OpenAIClient()
+def test_gives_up_after_max_retries_and_falls_back_to_the_fallback_model(openai_client):
+    client = openai_client
     client.max_rate_limit_retries = 1
     client.model = "primary-model"
     client.fallback_model = "fallback-model"
@@ -70,7 +58,9 @@ def test_gives_up_after_max_retries_and_falls_back_to_the_fallback_model():
     def always_rate_limited(*, model, messages, **kwargs):
         models_called.append(model)
         if model == client.fallback_model:
-            return _success_response("fallback saved the day")
+            return mock_completion(
+                "fallback saved the day", prompt_tokens=10, completion_tokens=5, total_tokens=15
+            )
         raise _rate_limit_error()
 
     with patch.object(
@@ -82,9 +72,3 @@ def test_gives_up_after_max_retries_and_falls_back_to_the_fallback_model():
     # Primary model: 1 initial attempt + 1 retry (both rate-limited), then
     # call() catches the exhausted RateLimitError and tries the fallback model.
     assert models_called == ["primary-model", "primary-model", "fallback-model"]
-
-
-if __name__ == "__main__":
-    test_retries_and_recovers_from_a_flaky_rate_limited_api()
-    test_gives_up_after_max_retries_and_falls_back_to_the_fallback_model()
-    print("Rate-limit retry tests passed.")
