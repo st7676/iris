@@ -29,9 +29,32 @@
   --color-paper: #ede4cf;
   --color-paper-text: #2b2116;
 
+  /* Darkened variants of the accent colors, for use as foreground
+     (text/border) on the light --color-paper background -- the plain
+     accent-* colors were tuned against the dark bg-primary and fall
+     short of WCAG AA (4.5:1) as foreground-on-paper. Each is the
+     lightest darkening of its accent-* counterpart that still clears
+     4.5:1 against --color-paper (#ede4cf), with a small margin. */
+  --color-paper-info: #356788;
+  --color-paper-danger: #b83030;
+  --color-paper-success: #7a5c24;
+
   --font-display: 'Special Elite', 'Courier New', monospace;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'Courier Prime', 'Fira Code', 'Courier New', monospace;
+}
+
+/* RGB triples (not full colors) for glow/shadow effects, so every
+   `shadow-[...]`/`text-shadow` call site references one definition
+   instead of re-deriving the same rgba() literal independently -- the
+   PR that introduced the warm palette above left these untokenized,
+   and two call sites (Timer.tsx, the Mentor-hint button) drifted out of
+   sync with the rest of the migrated palette as a direct result. Used
+   as e.g. `shadow-[0_0_10px_rgb(var(--glow-danger)/0.4)]`. */
+:root {
+  --glow-success: 217 164 65;
+  --glow-danger: 214 59 59;
+  --glow-info: 79 143 191;
 }
 
 body {
@@ -48,7 +71,13 @@ body {
   line-height: 1.6;
 }
 
-h1, h2, h3, .font-display {
+/* Scoped to `.font-display` only (not a bare h1/h2/h3 selector) -- this
+   theme so far only redesigns HomePage, LoginPage, BriefingPage and
+   SimulationPage; a bare tag selector would also reskin every heading on
+   pages this pass never reviewed (Scoreboard, ReportPage, HistoryPage,
+   InstructorDashboardPage, PostMortemComparison, Modal), pairing the new
+   decorative font with those pages' still-unmigrated colors/spacing. */
+.font-display {
   font-family: var(--font-display);
 }
 

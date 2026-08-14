@@ -135,7 +135,7 @@ export default function SimulationPage() {
     <div className="page min-h-screen bg-bg-primary text-text-primary">
       <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
 
-      <div className="mx-4 mt-4 overflow-hidden rounded border-2 border-accent-danger shadow-[0_0_30px_rgba(214,59,59,0.35)]">
+      <div className="mx-4 mt-4 overflow-hidden rounded border-2 border-accent-danger shadow-[0_0_30px_rgb(var(--glow-danger)/0.35)]">
         <div className="flex items-center gap-2 bg-accent-danger px-4 py-1.5">
           <span className="stamp !border-white/80 !text-white !py-0 !px-2 text-[10px]">Breaking</span>
           <span className="text-xs uppercase tracking-[0.2em] text-white/90">{scenario.title} — Case File Open</span>
@@ -211,7 +211,7 @@ export default function SimulationPage() {
           <button
             onClick={handleGetHint}
             disabled={loading}
-            className="hud-frame w-full border-2 border-accent-info bg-accent-info/10 rounded p-4 text-left hover:bg-accent-info/20 hover:shadow-[0_0_20px_rgba(0,153,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="hud-frame w-full border-2 border-accent-info bg-accent-info/10 rounded p-4 text-left hover:bg-accent-info/20 hover:shadow-[0_0_20px_rgb(var(--glow-info)/0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ ['--hud-color' as string]: 'var(--color-accent-info)' }}
           >
             <p className="text-sm font-bold uppercase tracking-wide text-accent-info">

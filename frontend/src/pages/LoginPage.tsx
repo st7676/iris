@@ -43,9 +43,9 @@ export default function LoginPage() {
 
   return (
     <div className="page min-h-screen flex items-center justify-center bg-bg-primary px-4">
-      <div className="case-folder hud-frame w-full max-w-md p-8 pt-10 space-y-6">
+      <div className="case-folder w-full max-w-md p-8 pt-10 space-y-6">
         <div className="text-center">
-          <span className="stamp text-accent-danger text-[10px]">Restricted Access</span>
+          <span className="stamp text-paper-danger text-[10px]">Restricted Access</span>
           <h1 className="font-display briefing-glow mt-3 text-3xl tracking-widest">
             IRIS
           </h1>
@@ -65,7 +65,7 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="agent_codename"
               disabled={loading}
-              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/40 focus:outline-none focus:border-accent-success disabled:opacity-50"
+              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/70 focus:outline-none focus:border-accent-success disabled:opacity-50"
               required
             />
           </div>
@@ -80,21 +80,26 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••••••"
               disabled={loading}
-              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/40 focus:outline-none focus:border-accent-success disabled:opacity-50"
+              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/70 focus:outline-none focus:border-accent-success disabled:opacity-50"
               required
             />
           </div>
 
           {error && (
-            <div className="border-2 border-accent-danger bg-accent-danger/10 text-accent-danger p-3 text-xs uppercase tracking-wide">
+            <div className="border-2 border-paper-danger bg-accent-danger/10 text-paper-danger p-3 text-xs uppercase tracking-wide">
               ✗ {error}
             </div>
           )}
 
+          {/* Primary submit action -- uses the palette's success/amber
+              accent (matching BriefingPage's "Begin Simulation" CTA), not
+              danger/red: red is reserved elsewhere in this app for
+              destructive actions (e.g. ActionButton's danger variant),
+              so a primary "log in" button shouldn't read as one. */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 uppercase tracking-widest text-sm font-bold border-2 border-accent-danger text-accent-danger hover:bg-accent-danger/10 hover:shadow-[0_0_20px_rgba(214,59,59,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 uppercase tracking-widest text-sm font-bold border-2 border-paper-success text-paper-success hover:bg-accent-success/10 hover:shadow-[0_0_20px_rgb(var(--glow-success)/0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Processing…' : showRegister ? 'Create Account' : 'Access System'}
           </button>
@@ -110,7 +115,7 @@ export default function LoginPage() {
               setError('')
             }}
             disabled={loading}
-            className="w-full py-2 px-4 uppercase tracking-widest text-xs border-2 border-accent-info text-accent-info hover:bg-accent-info/10 transition-all disabled:opacity-50"
+            className="w-full py-2 px-4 uppercase tracking-widest text-xs border-2 border-paper-info text-paper-info hover:bg-accent-info/10 transition-all disabled:opacity-50"
           >
             {showRegister ? 'Return to Login' : 'Register New Agent'}
           </button>

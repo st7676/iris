@@ -44,7 +44,7 @@ export default function BriefingPage() {
         <p className="text-xs uppercase tracking-[0.4em] text-accent-warning mb-2">
           // Mission Briefing
         </p>
-        <h1 className="briefing-glow text-3xl sm:text-4xl font-bold text-text-primary">
+        <h1 className="font-display briefing-glow text-3xl sm:text-4xl font-bold text-text-primary">
           {scenario.title}
         </h1>
         <p className="mt-1 text-xs uppercase tracking-wide text-text-secondary">
@@ -92,7 +92,7 @@ export default function BriefingPage() {
           </button>
           <button
             onClick={handleBegin}
-            className="flex-1 border-2 border-accent-success bg-accent-success/10 text-accent-success py-3 px-6 uppercase tracking-widest text-sm font-bold hover:bg-accent-success/20 hover:shadow-[0_0_30px_rgba(217,164,65,0.5)] transition-all"
+            className="flex-1 border-2 border-accent-success bg-accent-success/10 text-accent-success py-3 px-6 uppercase tracking-widest text-sm font-bold hover:bg-accent-success/20 hover:shadow-[0_0_30px_rgb(var(--glow-success)/0.5)] transition-all"
           >
             ▶ Begin Simulation
           </button>
