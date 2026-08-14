@@ -81,6 +81,53 @@ def test_register_degrades_gracefully_when_postgres_unreachable(client, monkeypa
     assert "id" in body  # a real (ephemeral) UUID, so scenario/start etc. still work
 
 
+def test_ephemeral_user_can_start_a_scenario_after_postgres_recovers(client, monkeypatch):
+    """
+    Regression test: a user registered while Postgres was down (see the
+    ephemeral-user fallback above) previously got a UUID that only
+    existed in memory -- if Postgres came back up before they clicked
+    "Begin Simulation", _user_exists() would do a real (empty) lookup and
+    404, breaking the exact flow the fallback exists to keep working.
+    Fixed by recording the ephemeral id in Mongo (see
+    app.db.mongodb.ephemeral_users_collection) so _user_exists() can
+    still recognize it even once Postgres is reachable again.
+    """
+    from sqlalchemy.exc import OperationalError
+
+    from app.deps import get_db
+    from app.main import app
+
+    class _BrokenSession:
+        def query(self, *args, **kwargs):
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        def rollback(self):
+            pass
+
+    def _broken_get_db():
+        yield _BrokenSession()
+
+    app.dependency_overrides[get_db] = _broken_get_db
+    try:
+        register_response = client.post(
+            "/api/users/register",
+            json={"username": "recovering_user", "email": "recovering@example.com", "password": "StrongPassw0rd!"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert register_response.status_code == 201
+    ephemeral_user_id = register_response.json()["id"]
+
+    # Postgres is "back" now (dependency override removed, real -- in this
+    # test, SQLite-backed -- session restored by the `client` fixture).
+    start_response = client.post(
+        "/api/scenarios/silent_login_v1/start",
+        json={"scenario_id": "silent_login_v1", "user_id": ephemeral_user_id},
+    )
+    assert start_response.status_code == 201
+
+
 def test_start_scenario(client):
     user_id = _register_user(client)
     response = client.post(

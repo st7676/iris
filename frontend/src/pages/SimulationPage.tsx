@@ -10,7 +10,7 @@ import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
-import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
+import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -58,12 +58,21 @@ export default function SimulationPage() {
   useEffect(() => {
     if (!incident || incident.incidentId === 'SF-2026-ERROR') return
 
-    const timer = setTimeout(() => {
+    // Tracks the "clear the nudge toast" timer too, not just the nudge
+    // itself -- otherwise it's never cancelled by this effect's cleanup,
+    // and it can fire later and wipe a newer, unrelated toast (e.g. from
+    // an investigate/decide action taken shortly after the nudge).
+    let dismissTimer: ReturnType<typeof setTimeout> | undefined
+
+    const nudgeTimer = setTimeout(() => {
       setToastMessage('⚠ Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.')
-      setTimeout(() => setToastMessage(null), 5000)
+      dismissTimer = setTimeout(() => setToastMessage(null), 5000)
     }, IDLE_NUDGE_MS)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(nudgeTimer)
+      if (dismissTimer) clearTimeout(dismissTimer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incident?.incidentId, actionLog.length])
 
@@ -129,7 +138,7 @@ export default function SimulationPage() {
     )
   }
 
-  const scenario = SCENARIOS[incident.scenarioId] ?? SCENARIOS[DEFAULT_SCENARIO_ID]
+  const scenario = getScenario(incident.scenarioId)
 
   return (
     <div className="page min-h-screen bg-bg-primary text-text-primary">

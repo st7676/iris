@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
-import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
+import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
 
 // The mission-briefing screen between "choose an incident" (HomePage)
 // and the live simulation -- lays out the narrative and what the
@@ -16,7 +16,7 @@ export default function BriefingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const scenario = SCENARIOS[scenarioId] ?? SCENARIOS[DEFAULT_SCENARIO_ID]
+  const scenario = getScenario(scenarioId)
 
   const handleBegin = async () => {
     setLoading(true)

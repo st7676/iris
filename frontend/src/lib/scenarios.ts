@@ -143,3 +143,11 @@ export const SCENARIOS: Record<string, ScenarioConfig> = {
 }
 
 export const DEFAULT_SCENARIO_ID = 'silent_login_v1'
+
+// Shared "look up a scenario, fall back to the default if missing/unknown"
+// lookup -- used anywhere a scenario id might be undefined (not yet
+// picked) or stale (e.g. an old link), instead of each page repeating
+// `SCENARIOS[id] ?? SCENARIOS[DEFAULT_SCENARIO_ID]` independently.
+export function getScenario(scenarioId: string | undefined): ScenarioConfig {
+  return SCENARIOS[scenarioId ?? DEFAULT_SCENARIO_ID] ?? SCENARIOS[DEFAULT_SCENARIO_ID]
+}
