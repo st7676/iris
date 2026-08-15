@@ -19,11 +19,11 @@ def _register_user(client) -> str:
     return response.json()["id"]
 
 
-def _start_incident(client) -> str:
+def _start_incident(client, scenario_id: str = "silent_login_v1") -> str:
     user_id = _register_user(client)
     response = client.post(
-        "/api/scenarios/silent_login_v1/start",
-        json={"scenario_id": "silent_login_v1", "user_id": user_id},
+        f"/api/scenarios/{scenario_id}/start",
+        json={"scenario_id": scenario_id, "user_id": user_id},
     )
     return response.json()["incident_id"]
 
@@ -79,6 +79,53 @@ def test_register_degrades_gracefully_when_postgres_unreachable(client, monkeypa
     body = response.json()
     assert body["username"] == "offline_user"
     assert "id" in body  # a real (ephemeral) UUID, so scenario/start etc. still work
+
+
+def test_ephemeral_user_can_start_a_scenario_after_postgres_recovers(client, monkeypatch):
+    """
+    Regression test: a user registered while Postgres was down (see the
+    ephemeral-user fallback above) previously got a UUID that only
+    existed in memory -- if Postgres came back up before they clicked
+    "Begin Simulation", _user_exists() would do a real (empty) lookup and
+    404, breaking the exact flow the fallback exists to keep working.
+    Fixed by recording the ephemeral id in Mongo (see
+    app.db.mongodb.ephemeral_users_collection) so _user_exists() can
+    still recognize it even once Postgres is reachable again.
+    """
+    from sqlalchemy.exc import OperationalError
+
+    from app.deps import get_db
+    from app.main import app
+
+    class _BrokenSession:
+        def query(self, *args, **kwargs):
+            raise OperationalError("SELECT 1", {}, Exception("connection refused"))
+
+        def rollback(self):
+            pass
+
+    def _broken_get_db():
+        yield _BrokenSession()
+
+    app.dependency_overrides[get_db] = _broken_get_db
+    try:
+        register_response = client.post(
+            "/api/users/register",
+            json={"username": "recovering_user", "email": "recovering@example.com", "password": "StrongPassw0rd!"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert register_response.status_code == 201
+    ephemeral_user_id = register_response.json()["id"]
+
+    # Postgres is "back" now (dependency override removed, real -- in this
+    # test, SQLite-backed -- session restored by the `client` fixture).
+    start_response = client.post(
+        "/api/scenarios/silent_login_v1/start",
+        json={"scenario_id": "silent_login_v1", "user_id": ephemeral_user_id},
+    )
+    assert start_response.status_code == 201
 
 
 def test_start_scenario(client):
@@ -146,6 +193,59 @@ def test_investigate_wrong_evidence_raises_severity(client):
     )
     assert response.status_code == 200
     assert response.json()["severity"] == "high"
+
+
+def test_start_insider_threat_scenario(client):
+    user_id = _register_user(client)
+    response = client.post(
+        "/api/scenarios/insider_threat_v1/start",
+        json={"scenario_id": "insider_threat_v1", "user_id": user_id},
+    )
+    assert response.status_code == 201
+    assert response.json()["scenario_id"] == "insider_threat_v1"
+    assert "Departing employee" in response.json()["alert_message"]
+
+
+def test_investigate_quick_hr_status_lowers_severity_for_insider_threat(client):
+    """
+    insider_threat_v1 has its own "check this first" evidence type
+    (hr_status, not auth_logs) -- branching_logic must be scenario-aware,
+    not hardcoded to Silent Login's vocabulary.
+    """
+    incident_id = _start_incident(client, scenario_id="insider_threat_v1")
+    response = client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "hr_status"}
+    )
+    assert response.status_code == 200
+    assert response.json()["severity"] == "low"
+
+
+def test_investigate_wrong_evidence_raises_severity_for_insider_threat(client):
+    incident_id = _start_incident(client, scenario_id="insider_threat_v1")
+    response = client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "usb_device_logs"}
+    )
+    assert response.status_code == 200
+    assert response.json()["severity"] == "high"
+
+
+def test_complete_insider_threat_scenario(client):
+    incident_id = _start_incident(client, scenario_id="insider_threat_v1")
+    client.post(
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "hr_status"}
+    )
+    client.post(
+        f"/api/incidents/{incident_id}/decide", json={"decision": "revoke_access"}
+    )
+
+    response = client.post(f"/api/incidents/{incident_id}/complete")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["your_chain"] == [
+        {"step": 1, "action": "check_hr_status"},
+        {"step": 2, "action": "revoke_access"},
+    ]
+    assert body["ideal_chain"][0]["action"] == "check_hr_status"
 
 
 def test_investigate_incident_not_found(client):

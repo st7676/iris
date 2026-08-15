@@ -23,25 +23,42 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
+INSIDER_THREAT_SCENARIO = {
+    "scenario_id": "insider_threat_v1",
+    "title": "Insider Threat",
+    "initial_severity": "medium",
+    "initial_alert_message": "Departing employee accessed sensitive files outside business hours.",
+    "ideal_reasoning_chain": [
+        {"step": 1, "action": "check_hr_status", "rationale": "Confirm offboarding status first"},
+        {"step": 2, "action": "check_file_access_logs", "rationale": "Identify what was accessed"},
+        {"step": 3, "action": "check_usb_device_logs", "rationale": "Check for data exfiltration via USB"},
+        {"step": 4, "action": "revoke_access", "rationale": "Contain by revoking access immediately"},
+    ],
+}
+
 
 @pytest.fixture
 def mongo_db(monkeypatch):
     import app.db.mongodb as mongodb_module
     import app.main as main_module
-    from app.api.routes import incidents, scenarios
+    from app.api.routes import incidents, scenarios, users
 
     mock_db = AsyncMongoMockClient()["iris_test"]
 
     monkeypatch.setattr(mongodb_module, "scenarios_collection", mock_db["scenarios"])
     monkeypatch.setattr(mongodb_module, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(mongodb_module, "evidence_collection", mock_db["evidence"])
+    monkeypatch.setattr(mongodb_module, "ephemeral_users_collection", mock_db["ephemeral_users"])
     monkeypatch.setattr(scenarios, "scenarios_collection", mock_db["scenarios"])
     monkeypatch.setattr(scenarios, "incidents_collection", mock_db["incidents"])
+    monkeypatch.setattr(scenarios, "ephemeral_users_collection", mock_db["ephemeral_users"])
     monkeypatch.setattr(incidents, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(incidents, "scenarios_collection", mock_db["scenarios"])
+    monkeypatch.setattr(users, "ephemeral_users_collection", mock_db["ephemeral_users"])
     monkeypatch.setattr(main_module, "incidents_collection", mock_db["incidents"])
 
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))
+    asyncio.run(mock_db["scenarios"].insert_one(dict(INSIDER_THREAT_SCENARIO)))
     return mock_db
 
 
