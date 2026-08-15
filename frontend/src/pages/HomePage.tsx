@@ -33,7 +33,7 @@ export default function HomePage() {
           // Incoming Transmission
         </p>
 
-        <h1 className="briefing-glow text-5xl sm:text-6xl font-bold tracking-widest text-accent-success">
+        <h1 className="briefing-glow font-display text-5xl sm:text-6xl tracking-widest text-accent-success">
           IRIS
         </h1>
 
@@ -48,25 +48,26 @@ export default function HomePage() {
           <MetaBadge icon="🎯" label="SOC Training" />
         </div>
 
-        <p className="mt-10 text-xs uppercase tracking-widest text-text-secondary">
-          Choose Your Incident
+        <p className="mt-10 font-display text-xs uppercase tracking-widest text-text-secondary">
+          Open a Case File
         </p>
-        <div className="mt-3 grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid w-full max-w-2xl gap-6 sm:grid-cols-2">
           {Object.values(SCENARIOS).map((scenario) => (
             <button
               key={scenario.id}
               onClick={() => goToBriefing(scenario.id)}
-              className="hud-frame border-2 border-accent-success bg-accent-success/5 p-5 text-left hover:bg-accent-success/15 hover:shadow-[0_0_30px_rgba(0,255,65,0.4)] transition-all"
+              className="case-folder p-5 pt-6 text-left hover:-translate-y-1 hover:shadow-[0_14px_28px_rgba(0,0,0,0.55)] transition-all"
             >
-              <p className="text-base font-bold uppercase tracking-wide text-accent-success">
-                ▶ {scenario.title}
+              <span className="stamp text-accent-danger text-[10px]">Case File</span>
+              <p className="font-display mt-3 text-base">
+                {scenario.title}
               </p>
-              <p className="mt-2 text-xs text-text-secondary leading-relaxed">{scenario.tagline}</p>
+              <p className="mt-2 text-xs leading-relaxed opacity-80">{scenario.tagline}</p>
             </button>
           ))}
         </div>
 
-        <div className="mt-4 flex w-full max-w-2xl gap-4">
+        <div className="mt-6 flex w-full max-w-2xl gap-4">
           <button
             onClick={() => navigate('/history')}
             className="flex-1 border border-border-default text-text-secondary py-2 px-4 uppercase tracking-wide text-sm hover:border-border-highlight transition-all"
