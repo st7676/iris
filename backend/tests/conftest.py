@@ -23,12 +23,11 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
-
 @pytest.fixture
 def mongo_db(monkeypatch):
     import app.db.mongodb as mongodb_module
     import app.main as main_module
-    from app.api.routes import incidents, scenarios
+    from app.api.routes import incidents, scenarios, users
     from app.db.init_db import INSIDER_THREAT_SCENARIO
 
     mock_db = AsyncMongoMockClient()["iris_test"]
@@ -36,10 +35,13 @@ def mongo_db(monkeypatch):
     monkeypatch.setattr(mongodb_module, "scenarios_collection", mock_db["scenarios"])
     monkeypatch.setattr(mongodb_module, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(mongodb_module, "evidence_collection", mock_db["evidence"])
+    monkeypatch.setattr(mongodb_module, "ephemeral_users_collection", mock_db["ephemeral_users"])
     monkeypatch.setattr(scenarios, "scenarios_collection", mock_db["scenarios"])
     monkeypatch.setattr(scenarios, "incidents_collection", mock_db["incidents"])
+    monkeypatch.setattr(scenarios, "ephemeral_users_collection", mock_db["ephemeral_users"])
     monkeypatch.setattr(incidents, "incidents_collection", mock_db["incidents"])
     monkeypatch.setattr(incidents, "scenarios_collection", mock_db["scenarios"])
+    monkeypatch.setattr(users, "ephemeral_users_collection", mock_db["ephemeral_users"])
     monkeypatch.setattr(main_module, "incidents_collection", mock_db["incidents"])
 
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))

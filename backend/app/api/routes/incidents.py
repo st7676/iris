@@ -3,10 +3,12 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core import ai_bridge
+from app.core.ws_manager import manager
 from app.db.mongodb import incidents_collection, scenarios_collection
 from app.db.postgres import SessionScore
 from app.deps import get_db
@@ -18,7 +20,12 @@ from app.models.incident import (
     ScoreResponse,
 )
 from app.simulation.branching_logic import apply_investigation_branch
-from app.simulation.engine import build_actual_chain, record_decision, record_investigation
+from app.simulation.engine import (
+    build_actual_chain,
+    build_ai_commander_update,
+    record_decision,
+    record_investigation,
+)
 
 logger = logging.getLogger("iris.incidents")
 
@@ -57,6 +64,24 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
             "$set": {"severity": new_severity, "updated_at": evidence["revealed_at"]},
         },
     )
+    updated = await _get_incident_or_404(incident_id)
+
+    # AI Commander announces the development to anyone watching this
+    # incident's WebSocket -- this is the "live incident" feel from the
+    # Technical Spec, not something the client has to poll/ask for.
+    # Runs off the event loop (it's a blocking network call to OpenAI) and
+    # is best-effort: a broadcast failure shouldn't fail the investigate
+    # request itself, the evidence was already recorded successfully.
+    try:
+        ai_update = await run_in_threadpool(
+            build_ai_commander_update, updated, payload.evidence_type
+        )
+        await manager.broadcast(incident_id, ai_update)
+    except Exception:
+        logger.error(
+            "AI Commander broadcast failed for incident %s", incident_id, exc_info=True
+        )
+
     logger.info(
         "incident_id=%s user_id=%s action=investigate evidence_type=%s new_severity=%s",
         incident_id,
@@ -64,7 +89,7 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
         payload.evidence_type,
         new_severity,
     )
-    return await _get_incident_or_404(incident_id)
+    return updated
 
 
 @router.post("/{incident_id}/decide", response_model=IncidentResponse)
