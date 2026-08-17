@@ -42,6 +42,100 @@ def test_openapi_docs_available(client):
     assert "/api/incidents/{incident_id}" in paths
 
 
+def test_login_success(client):
+    suffix = uuid.uuid4().hex[:8]
+    username = f"sara_soc_{suffix}"
+    client.post(
+        "/api/users/register",
+        json={
+            "username": username,
+            "email": f"sara_{suffix}@example.com",
+            "password": "StrongPassw0rd!",
+        },
+    )
+    response = client.post(
+        "/api/users/login",
+        json={"username": username, "password": "StrongPassw0rd!"},
+    )
+    assert response.status_code == 200
+    assert response.json()["username"] == username
+
+
+def test_login_wrong_password(client):
+    suffix = uuid.uuid4().hex[:8]
+    username = f"sara_soc_{suffix}"
+    client.post(
+        "/api/users/register",
+        json={
+            "username": username,
+            "email": f"sara_{suffix}@example.com",
+            "password": "StrongPassw0rd!",
+        },
+    )
+    response = client.post(
+        "/api/users/login",
+        json={"username": username, "password": "WrongPassword!"},
+    )
+    assert response.status_code == 401
+
+
+def test_login_rate_limited_after_threshold(client):
+    for _ in range(10):
+        response = client.post(
+            "/api/users/login",
+            json={"username": "does_not_exist", "password": "whatever"},
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/api/users/login",
+        json={"username": "does_not_exist", "password": "whatever"},
+    )
+    assert response.status_code == 429
+
+
+def test_login_unknown_user(client):
+    response = client.post(
+        "/api/users/login",
+        json={"username": "does_not_exist", "password": "whatever"},
+    )
+    assert response.status_code == 401
+
+
+def test_instructor_dashboard_aggregates_scores(client, postgres_db):
+    from app.db.postgres import SessionScore, User
+
+    db = postgres_db()
+    user = User(username="instructor_fixture_user", email="ifu@example.com", hashed_password="x")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    db.add_all(
+        [
+            SessionScore(user_id=user.id, incident_id="SF-1", scenario_id="silent_login_v1", score=80),
+            SessionScore(user_id=user.id, incident_id="SF-2", scenario_id="silent_login_v1", score=60),
+            SessionScore(user_id=user.id, incident_id="SF-3", scenario_id="insider_threat_v1", score=90),
+        ]
+    )
+    db.commit()
+    db.close()
+
+    response = client.get("/api/instructor/dashboard")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_sessions"] == 3
+    assert body["average_score"] == 76.67
+    assert body["by_scenario"]["silent_login_v1"] == {"sessions": 2, "average_score": 70.0}
+    assert body["by_scenario"]["insider_threat_v1"] == {"sessions": 1, "average_score": 90.0}
+
+
+def test_instructor_dashboard_empty_state(client):
+    response = client.get("/api/instructor/dashboard")
+    assert response.status_code == 200
+    assert response.json() == {"total_sessions": 0, "average_score": None, "by_scenario": {}}
+
+
 def test_register_degrades_gracefully_when_postgres_unreachable(client, monkeypatch):
     """
     /register is the very first request the Frontend makes on every "Start
@@ -203,18 +297,18 @@ def test_start_insider_threat_scenario(client):
     )
     assert response.status_code == 201
     assert response.json()["scenario_id"] == "insider_threat_v1"
-    assert "Departing employee" in response.json()["alert_message"]
+    assert "חריגה" in response.json()["alert_message"]
 
 
-def test_investigate_quick_hr_status_lowers_severity_for_insider_threat(client):
+def test_investigate_quick_file_access_logs_lowers_severity_for_insider_threat(client):
     """
     insider_threat_v1 has its own "check this first" evidence type
-    (hr_status, not auth_logs) -- branching_logic must be scenario-aware,
-    not hardcoded to Silent Login's vocabulary.
+    (file_access_logs, not auth_logs) -- branching_logic must be
+    scenario-aware, not hardcoded to Silent Login's vocabulary.
     """
     incident_id = _start_incident(client, scenario_id="insider_threat_v1")
     response = client.post(
-        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "hr_status"}
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "file_access_logs"}
     )
     assert response.status_code == 200
     assert response.json()["severity"] == "low"
@@ -232,7 +326,7 @@ def test_investigate_wrong_evidence_raises_severity_for_insider_threat(client):
 def test_complete_insider_threat_scenario(client):
     incident_id = _start_incident(client, scenario_id="insider_threat_v1")
     client.post(
-        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "hr_status"}
+        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "file_access_logs"}
     )
     client.post(
         f"/api/incidents/{incident_id}/decide", json={"decision": "revoke_access"}
@@ -242,10 +336,10 @@ def test_complete_insider_threat_scenario(client):
     assert response.status_code == 200
     body = response.json()
     assert body["your_chain"] == [
-        {"step": 1, "action": "check_hr_status"},
+        {"step": 1, "action": "check_file_access_logs"},
         {"step": 2, "action": "revoke_access"},
     ]
-    assert body["ideal_chain"][0]["action"] == "check_hr_status"
+    assert body["ideal_chain"][0]["action"] == "check_file_access_logs"
 
 
 def test_investigate_incident_not_found(client):

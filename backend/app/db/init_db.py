@@ -33,35 +33,32 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
-# Action names coordinated ahead of time with the AI prompts
-# (ai_services/tests/test_insider_threat.py) so the Evaluator's
-# ideal_reasoning_chain comparison is meaningful from day one.
 INSIDER_THREAT_SCENARIO = {
     "scenario_id": "insider_threat_v1",
     "title": "Insider Threat",
-    "description": "A departing employee accessed sensitive files outside business hours.",
+    "description": "עובדת שעוזבת את הארגון ניגשת לקבצים רגישים בשעות לא שגרתיות.",
     "initial_severity": "medium",
-    "initial_alert_message": "Departing employee accessed sensitive files outside business hours.",
+    "initial_alert_message": "זוהתה גישה חריגה לקבצים רגישים.",
     "ideal_reasoning_chain": [
         {
             "step": 1,
-            "action": "check_hr_status",
-            "rationale": "Confirm offboarding status first",
+            "action": "check_file_access_logs",
+            "rationale": "לזהות אילו קבצים ניגשו ומתי",
         },
         {
             "step": 2,
-            "action": "check_file_access_logs",
-            "rationale": "Identify what was accessed",
+            "action": "check_usb_device_logs",
+            "rationale": "לבדוק אם היה ניסיון להעתקת נתונים החוצה",
         },
         {
             "step": 3,
-            "action": "check_usb_device_logs",
-            "rationale": "Check for data exfiltration via USB",
+            "action": "check_hr_status",
+            "rationale": "לוודא אם העובדת בתהליך עזיבה — מקור הסיכון",
         },
         {
             "step": 4,
             "action": "revoke_access",
-            "rationale": "Contain by revoking access immediately",
+            "rationale": "לחסום גישה נוספת מיידית",
         },
     ],
 }

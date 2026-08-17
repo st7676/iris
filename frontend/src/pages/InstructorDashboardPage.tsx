@@ -8,9 +8,8 @@ interface DashboardData {
   by_scenario: Record<
     string,
     {
-      count: number
-      total: number
-      average: number
+      sessions: number
+      average_score: number
     }
   >
 }
@@ -108,7 +107,7 @@ export default function InstructorDashboardPage() {
           <div className="border border-border-default rounded p-6">
             <div className="text-sm text-text-secondary uppercase mb-2">Average Score</div>
             <div className="text-4xl font-bold text-accent-success">
-              {dashboard.average_score !== null ? `${(dashboard.average_score * 100).toFixed(1)}%` : '—'}
+              {dashboard.average_score !== null ? `${dashboard.average_score.toFixed(1)}%` : '—'}
             </div>
           </div>
         </div>
@@ -141,16 +140,16 @@ export default function InstructorDashboardPage() {
                             ? 'Insider Threat'
                             : scenarioId}
                       </td>
-                      <td className="py-3 px-3 text-right text-text-primary">{stats.count}</td>
+                      <td className="py-3 px-3 text-right text-text-primary">{stats.sessions}</td>
                       <td className="py-3 px-3 text-right">
                         <span className={`font-semibold ${
-                          stats.average >= 0.8
+                          stats.average_score >= 80
                             ? 'text-accent-success'
-                            : stats.average >= 0.6
+                            : stats.average_score >= 60
                               ? 'text-accent-warning'
                               : 'text-accent-error'
                         }`}>
-                          {(stats.average * 100).toFixed(1)}%
+                          {stats.average_score.toFixed(1)}%
                         </span>
                       </td>
                     </tr>

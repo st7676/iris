@@ -85,6 +85,7 @@ Technical Spec.
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/users/register` | Register a new user |
+| POST | `/api/users/login` | Authenticate against an existing user |
 | GET | `/api/users/{user_id}` | Get a user by id |
 | GET | `/api/users/{user_id}/history` | Get a user's past session scores |
 
@@ -92,13 +93,26 @@ Technical Spec.
 curl -X POST http://localhost:8000/api/users/register \
   -H "Content-Type: application/json" \
   -d '{"username": "sara_soc", "email": "sara@example.com", "password": "StrongPassw0rd!"}'
+
+curl -X POST http://localhost:8000/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "sara_soc", "password": "StrongPassw0rd!"}'
 ```
+
+`login` returns `401` for both a wrong password and an unknown username (never `404`), so a
+caller can't enumerate which usernames are registered. Both `register` and `login` are
+rate-limited to 10 requests/minute per IP (see [`app/core/rate_limit.py`](app/core/rate_limit.py))
+to blunt brute-force attempts; exceeding it returns `429`.
 
 ### Scenarios
 
 | Method | Path | Description |
 |---|---|---|
 | POST | `/api/scenarios/{scenario_id}/start` | Start a new incident from a scenario |
+
+Two scenarios are seeded on startup: `silent_login_v1` and `insider_threat_v1` (see
+[`app/db/init_db.py`](app/db/init_db.py)) — the same engine and branching logic drive both,
+proving the simulation isn't hardcoded to a single flow.
 
 ```bash
 curl -X POST http://localhost:8000/api/scenarios/silent_login_v1/start \
@@ -149,9 +163,32 @@ curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete
 curl http://localhost:8000/api/incidents/SF-2026-0142/report
 ```
 
-Checking `auth_logs` within 60 seconds of the incident starting lowers severity by one
-level; checking anything else, or checking `auth_logs` too late, raises it (bounded
-between `low` and `critical`). See [`app/simulation/branching_logic.py`](app/simulation/branching_logic.py).
+Each scenario has one "fast path" evidence type (`auth_logs` for `silent_login_v1`,
+`file_access_logs` for `insider_threat_v1`) — checking it within 60 seconds of the
+incident starting lowers severity by one level; checking anything else, or checking it
+too late, raises severity instead (bounded between `low` and `critical`). See
+[`app/simulation/branching_logic.py`](app/simulation/branching_logic.py).
+
+### Instructor
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/instructor/dashboard` | Aggregate session_scores: overall + per-scenario totals and averages |
+
+```bash
+curl http://localhost:8000/api/instructor/dashboard
+```
+
+```json
+{
+  "total_sessions": 3,
+  "average_score": 76.67,
+  "by_scenario": {
+    "silent_login_v1": {"sessions": 2, "average_score": 70.0},
+    "insider_threat_v1": {"sessions": 1, "average_score": 90.0}
+  }
+}
+```
 
 `hint` and `complete` call the real AI Mentor/Evaluator (see `app/core/ai_bridge.py`); if
 the OpenAI call fails outright (rate limit, timeout, missing/invalid key), the endpoint
@@ -196,3 +233,57 @@ just tested with mocks. Two bugs only showed up this way and are now fixed:
 With those fixed, a full register → start → investigate → decide → complete → history
 flow, the WebSocket, structured logs, MongoDB indexes, and Postgres tables were all
 confirmed working against the real Dockerized stack.
+
+### Day 21 rehearsal (both scenarios, real Docker)
+
+Re-ran the full path end to end against a clean `docker-compose down && up --build` for
+both scenarios: register → login → start → investigate (x1 for Silent Login, x3 for
+Insider Threat) → decide → complete → report → history → instructor dashboard.
+Register/login/start/investigate/decide all worked correctly on both scenarios,
+including the per-scenario severity branching (`auth_logs` vs. `file_access_logs` as the
+fast path) and rate limiting.
+
+**`complete` still 503s** — Docker Desktop's proxy (`docker info` shows
+`http.docker.internal:3128` still configured) blocks the container's outbound HTTPS to
+OpenAI with `openai.APIConnectionError: Connection error.`, exactly the failure Day 15
+was scoped to fix. Day 15 was deprioritized this sprint in favor of Login (Day 16),
+Insider Threat (Day 17-18), Instructor Dashboard (Day 19), and rate
+limiting/dependency audit (Day 20) — it remains the one open item before a live demo can
+show a real AI-scored `complete`/`report`. Everything downstream of it degrades exactly
+as designed: `complete` returns `503` instead of crashing, the incident stays
+`in_progress` rather than silently completing with no score, and `/report`,
+`/users/{id}/history`, and `/instructor/dashboard` all correctly show nothing recorded
+for that incident. `pytest tests/ -v` (34 tests, mocked AI) passes in full regardless,
+since it doesn't depend on the container's network path to OpenAI.
+
+### Day 15, resolved: `CERTIFICATE_VERIFY_FAILED` inside Docker, but not on host
+
+Root cause: a local TLS-intercepting tool on the host machine (a corporate proxy,
+antivirus HTTPS scanning, a content filter, a VPN client, etc.) was re-signing outbound
+HTTPS with its own locally-trusted root CA. Windows trusts that root (so the host
+worked); the Linux container's separate CA store didn't (so it failed). Diagnose with:
+
+```bash
+docker run --rm alpine sh -c "apk add --no-cache openssl >/dev/null; \
+  openssl s_client -connect api.openai.com:443 -servername api.openai.com -showcerts 2>/dev/null | \
+  openssl x509 -noout -issuer"
+```
+
+If the issuer isn't a recognizable public CA (Let's Encrypt, DigiCert, etc.), that's a
+local interceptor. **This is fixed per machine, not in this repo** -- the intercepting
+CA is unique to each developer's own setup and wouldn't help (or would even be
+misleading) on anyone else's:
+
+1. Export the interceptor's root CA as PEM into `backend/.local/` (gitignored).
+2. Add a `backend/docker-compose.override.yml` (also gitignored -- `docker-compose`
+   loads it automatically alongside `docker-compose.yml`) that mounts the cert into
+   `/usr/local/share/ca-certificates/`, runs `update-ca-certificates`, and sets
+   `SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt` (httpx -- and therefore the OpenAI
+   SDK -- honors that env var ahead of its bundled `certifi` CA list).
+
+Teammates without that local override file are completely unaffected; `docker-compose
+up` behaves exactly as before for them.
+
+With this in place, `/complete` now reaches OpenAI successfully end to end (confirmed:
+`openai.RateLimitError: insufficient_quota` came back from a real API response, not a
+connection error -- a separate, unrelated billing matter, not a code or infra issue).

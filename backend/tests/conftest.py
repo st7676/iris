@@ -23,25 +23,12 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
-INSIDER_THREAT_SCENARIO = {
-    "scenario_id": "insider_threat_v1",
-    "title": "Insider Threat",
-    "initial_severity": "medium",
-    "initial_alert_message": "Departing employee accessed sensitive files outside business hours.",
-    "ideal_reasoning_chain": [
-        {"step": 1, "action": "check_hr_status", "rationale": "Confirm offboarding status first"},
-        {"step": 2, "action": "check_file_access_logs", "rationale": "Identify what was accessed"},
-        {"step": 3, "action": "check_usb_device_logs", "rationale": "Check for data exfiltration via USB"},
-        {"step": 4, "action": "revoke_access", "rationale": "Contain by revoking access immediately"},
-    ],
-}
-
-
 @pytest.fixture
 def mongo_db(monkeypatch):
     import app.db.mongodb as mongodb_module
     import app.main as main_module
     from app.api.routes import incidents, scenarios, users
+    from app.db.init_db import INSIDER_THREAT_SCENARIO
 
     mock_db = AsyncMongoMockClient()["iris_test"]
 
@@ -60,6 +47,14 @@ def mongo_db(monkeypatch):
     asyncio.run(mock_db["scenarios"].insert_one(dict(SILENT_LOGIN_SCENARIO)))
     asyncio.run(mock_db["scenarios"].insert_one(dict(INSIDER_THREAT_SCENARIO)))
     return mock_db
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    from app.core.rate_limit import reset_rate_limits
+
+    reset_rate_limits()
+    yield
 
 
 @pytest.fixture(autouse=True)
