@@ -43,71 +43,68 @@ export default function LoginPage() {
 
   return (
     <div className="page min-h-screen flex items-center justify-center bg-bg-primary px-4">
-      <div className="case-folder w-full max-w-md p-8 pt-10 space-y-6">
-        <div className="text-center">
-          <span className="stamp text-paper-danger text-[10px]">Restricted Access</span>
-          <h1 className="font-display briefing-glow mt-3 text-3xl tracking-widest">
+      <div className="w-full max-w-md p-8 space-y-8 bg-bg-secondary border border-border-default rounded-lg">
+        <div className="text-center space-y-3">
+          <div className="text-accent-primary text-2xl font-bold tracking-widest">
+            ◆ ◆ ◆
+          </div>
+          <h1 className="font-display text-4xl font-bold tracking-widest" style={{color: '#2dd4bf'}}>
             IRIS
           </h1>
-          <p className="mt-2 text-xs uppercase tracking-widest opacity-70">
-            Case File Access Terminal
+          <p className="text-xs uppercase tracking-widest text-text-muted">
+            Cyber Defense Console
           </p>
         </div>
 
         <form onSubmit={showRegister ? handleRegister : handleLogin} className="space-y-4">
-          <div className="text-left">
-            <label className="text-xs uppercase mb-1 block tracking-widest opacity-80">
-              Agent Codename
+          <div className="space-y-2">
+            <label className="text-xs uppercase mb-2 block tracking-widest text-text-secondary">
+              {showRegister ? 'Email' : 'Username'}
             </label>
             <input
-              type="text"
+              type={showRegister ? 'email' : 'text'}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="agent_codename"
+              placeholder={showRegister ? 'user@example.com' : 'username'}
               disabled={loading}
-              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/70 focus:outline-none focus:border-accent-success disabled:opacity-50"
+              className="w-full px-4 py-2 bg-bg-primary border border-border-default text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary/30 rounded transition-all disabled:opacity-50"
               required
             />
           </div>
 
-          <div className="text-left">
-            <label className="text-xs uppercase mb-1 block tracking-widest opacity-80">
-              Passphrase
+          <div className="space-y-2">
+            <label className="text-xs uppercase mb-2 block tracking-widest text-text-secondary">
+              Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••••••"
+              placeholder="••••••••••••"
               disabled={loading}
-              className="w-full px-3 py-2 border-2 border-border-default bg-white/40 text-paper-text placeholder-paper-text/70 focus:outline-none focus:border-accent-success disabled:opacity-50"
+              className="w-full px-4 py-2 bg-bg-primary border border-border-default text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary focus:ring-1 focus:ring-accent-primary/30 rounded transition-all disabled:opacity-50"
               required
             />
           </div>
 
           {error && (
-            <div className="border-2 border-paper-danger bg-accent-danger/10 text-paper-danger p-3 text-xs uppercase tracking-wide">
+            <div className="border border-accent-danger bg-accent-danger/10 text-accent-danger p-3 rounded text-xs uppercase tracking-wide">
               ✗ {error}
             </div>
           )}
 
-          {/* Primary submit action -- uses the palette's success/amber
-              accent (matching BriefingPage's "Begin Simulation" CTA), not
-              danger/red: red is reserved elsewhere in this app for
-              destructive actions (e.g. ActionButton's danger variant),
-              so a primary "log in" button shouldn't read as one. */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 uppercase tracking-widest text-sm font-bold border-2 border-paper-success text-paper-success hover:bg-accent-success/10 hover:shadow-[0_0_20px_rgb(var(--glow-success)/0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 px-4 uppercase tracking-widest text-sm font-bold bg-accent-primary text-bg-primary hover:bg-accent-primary/90 rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Processing…' : showRegister ? 'Create Account' : 'Access System'}
           </button>
         </form>
 
-        <div className="border-t border-border-default pt-4 text-center">
-          <p className="text-xs uppercase tracking-widest opacity-70 mb-3">
-            {showRegister ? 'Already have access?' : 'Need credentials?'}
+        <div className="border-t border-border-default pt-4 text-center space-y-3">
+          <p className="text-xs uppercase tracking-widest text-text-muted">
+            {showRegister ? 'Already have access?' : 'Need an account?'}
           </p>
           <button
             onClick={() => {
@@ -115,9 +112,9 @@ export default function LoginPage() {
               setError('')
             }}
             disabled={loading}
-            className="w-full py-2 px-4 uppercase tracking-widest text-xs border-2 border-paper-info text-paper-info hover:bg-accent-info/10 transition-all disabled:opacity-50"
+            className="w-full py-2 px-4 uppercase tracking-widest text-xs border border-border-default text-text-secondary hover:text-accent-primary hover:border-accent-primary rounded transition-all disabled:opacity-50"
           >
-            {showRegister ? 'Return to Login' : 'Register New Agent'}
+            {showRegister ? 'Return to Login' : 'Register New Account'}
           </button>
         </div>
       </div>

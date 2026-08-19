@@ -1,70 +1,57 @@
 @import "tailwindcss";
 
 /*
- * "Case File / Interrogation Room" theme -- a deliberate pivot away from
- * the earlier hacker-terminal/monospace-everything look, which read as a
- * dense dashboard rather than an escape room. Warm, dim-room palette +
- * a typewriter display font for headlines, clean sans for body copy,
- * evidence styled as physical pinned notes on cork.
+ * "Tech Noir" theme -- dark sci-fi aesthetic with electric teal accents.
+ * Built on design spec v2 with visual approval for every component.
+ * Dark background (#0d1117) + card-elevated panels (soft shadow, clean borders).
+ * Orbitron display font for headlines, Inter for body copy.
+ * No neon glow effects on borders/buttons -- flat minimal + elevated cards.
  */
 @theme {
-  --color-bg-primary: #15100c;
-  --color-bg-secondary: #1f1811;
-  --color-bg-tertiary: #2b2116;
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-tertiary: #21262d;
 
-  --color-text-primary: #ece3d3;
-  --color-text-secondary: #a89a83;
-  --color-text-muted: #6b5f4d;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #c9d1d9;
+  --color-text-muted: #8b949e;
 
-  --color-border-default: #3a2e20;
-  --color-border-highlight: #57452e;
+  --color-border-default: #30363d;
+  --color-border-highlight: #484f58;
 
-  --color-accent-success: #d9a441;
-  --color-accent-warning: #e07b3f;
-  --color-accent-danger: #d63b3b;
-  --color-accent-info: #4f8fbf;
-  --color-accent-neutral: #a89a83;
+  --color-accent-primary: #2dd4bf;
+  --color-accent-success: #58a6ff;
+  --color-accent-warning: #ff9500;
+  --color-accent-danger: #ff2d55;
+  --color-accent-info: #0ea5ff;
 
-  --color-cork: #6b4a2f;
-  --color-paper: #ede4cf;
-  --color-paper-text: #2b2116;
+  --color-cork: #161b22;
+  --color-paper: #0d1117;
+  --color-paper-text: #c9d1d9;
 
-  /* Darkened variants of the accent colors, for use as foreground
-     (text/border) on the light --color-paper background -- the plain
-     accent-* colors were tuned against the dark bg-primary and fall
-     short of WCAG AA (4.5:1) as foreground-on-paper. Each is the
-     lightest darkening of its accent-* counterpart that still clears
-     4.5:1 against --color-paper (#ede4cf), with a small margin. */
-  --color-paper-info: #356788;
-  --color-paper-danger: #b83030;
-  --color-paper-success: #7a5c24;
+  --color-paper-info: #0ea5ff;
+  --color-paper-danger: #ff2d55;
+  --color-paper-success: #58a6ff;
 
-  --font-display: 'Special Elite', 'Courier New', monospace;
+  --font-display: 'Orbitron', 'Inter', system-ui, -apple-system, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'Courier Prime', 'Fira Code', 'Courier New', monospace;
 }
 
-/* RGB triples (not full colors) for glow/shadow effects, so every
-   `shadow-[...]`/`text-shadow` call site references one definition
-   instead of re-deriving the same rgba() literal independently -- the
-   PR that introduced the warm palette above left these untokenized,
-   and two call sites (Timer.tsx, the Mentor-hint button) drifted out of
-   sync with the rest of the migrated palette as a direct result. Used
-   as e.g. `shadow-[0_0_10px_rgb(var(--glow-danger)/0.4)]`. */
+/* RGB triples (not full colors) for glow/shadow effects. Tech Noir palette. */
 :root {
-  --glow-success: 217 164 65;
-  --glow-danger: 214 59 59;
-  --glow-info: 79 143 191;
+  --glow-primary: 45 212 191;
+  --glow-danger: 255 45 85;
+  --glow-info: 14 165 255;
 }
 
 body {
   background-color: var(--color-bg-primary);
-  /* Faint vignette, like a single desk lamp lighting a dim room, rather
-     than a flat terminal-black or a tech grid. */
+  /* Subtle teal glow from above, barely perceptible. Clean minimal look. */
   background-image: radial-gradient(
-    ellipse at 50% -10%,
-    rgba(217, 164, 65, 0.08),
-    transparent 60%
+    ellipse at 50% -20%,
+    rgba(45, 212, 191, 0.04),
+    transparent 70%
   );
   color: var(--color-text-primary);
   font-family: var(--font-sans);
@@ -96,11 +83,10 @@ body {
   border-radius: 4px;
 }
 
-/* HUD corner brackets -- kept, but now amber by default to match the
-   warmer palette (was neon green). */
+/* HUD corner brackets -- electric teal accents for Tech Noir. */
 .hud-frame {
   position: relative;
-  --hud-color: var(--color-accent-success);
+  --hud-color: var(--color-accent-primary);
 }
 .hud-frame::before,
 .hud-frame::after {
@@ -143,56 +129,56 @@ body {
 }
 
 /*
- * A pinned index card / photo -- the evidence "physically" attached to
- * the corkboard. Cream paper, dark ink text, a slight rotation per card
- * (alternating via nth-child), a torn/rough bottom edge, and a small
- * pin dot at the top center.
+ * Evidence cards -- dark panels with subtle borders and clean shadow.
+ * Card-elevated style: soft drop shadow for depth, 1px clean borders.
+ * Minimal rotation for visual interest without distraction.
  */
 .pinned-note {
   position: relative;
-  background: var(--color-paper);
-  color: var(--color-paper-text);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
-  clip-path: polygon(
-    0% 0%, 100% 0%, 100% 96%, 92% 100%, 82% 97%, 72% 100%, 62% 97%,
-    52% 100%, 42% 97%, 32% 100%, 22% 97%, 12% 100%, 0% 97%
-  );
-  transform: rotate(-1.5deg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: rotate(-0.5deg);
 }
 .pinned-note:nth-child(even) {
-  transform: rotate(1.5deg);
+  transform: rotate(0.5deg);
 }
 .pinned-note::before {
   content: '';
   position: absolute;
-  top: -6px;
+  top: -8px;
   left: 50%;
   transform: translateX(-50%);
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #ff6b5b, #a11f1f);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5);
+  background: var(--color-accent-primary);
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.3);
 }
 
 /*
- * A manila case-file folder look, for scenario selection cards.
+ * Scenario selection cards -- dark panels with accent border highlight.
+ * Card-elevated design with clean borders and soft shadow.
  */
 .case-folder {
   position: relative;
-  background: var(--color-paper);
-  color: var(--color-paper-text);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-top: 2px solid var(--color-accent-primary);
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 .case-folder::before {
   content: '';
   position: absolute;
-  top: -14px;
-  left: 20px;
-  width: 90px;
-  height: 16px;
-  background: var(--color-paper);
-  clip-path: polygon(10% 100%, 0% 0%, 100% 0%, 90% 100%);
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--color-accent-primary), transparent);
 }
 
 /* A rotated "stamp" badge, like a case file marking. */
