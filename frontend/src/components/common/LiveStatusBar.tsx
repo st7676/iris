@@ -18,9 +18,9 @@ export default function LiveStatusBar() {
         <PulseDot colorClass="bg-accent-danger" />
         Live Simulation
       </div>
-      <div className="hidden text-text-secondary sm:block">// IRIS Cyber Defense Console</div>
-      <div className="flex items-center gap-2 text-accent-success">
-        <PulseDot colorClass="bg-accent-success" />
+      <div className="hidden text-text-muted sm:block">▸ IRIS Cyber Defense Console</div>
+      <div className="flex items-center gap-2 text-accent-primary">
+        <PulseDot colorClass="bg-accent-primary" />
         System Online
       </div>
     </div>

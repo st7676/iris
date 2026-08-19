@@ -15,24 +15,24 @@ export default function Scoreboard({ finalScore, breakdown }: ScoreboardProps) {
 
   return (
     <div className="space-y-4">
-      <div className="hud-frame border border-border-default rounded p-6 text-center">
-        <h1 className="text-lg uppercase tracking-widest text-text-secondary">
+      <div className="border border-border-default bg-bg-secondary rounded-lg p-6 text-center">
+        <h1 className="text-lg uppercase tracking-widest text-text-muted">
           Simulation Complete
         </h1>
-        <p className="text-4xl font-bold text-accent-success mt-2">{finalScore}%</p>
+        <p className="text-4xl font-bold text-accent-primary mt-3">{finalScore}%</p>
       </div>
 
-      <div className="border border-border-default rounded p-4 space-y-3">
-        <h2 className="text-sm uppercase text-text-secondary">Performance Breakdown</h2>
+      <div className="border border-border-default bg-bg-secondary rounded-lg p-4 space-y-4">
+        <h2 className="text-sm uppercase tracking-widest text-text-muted">Performance Breakdown</h2>
         {breakdown.map((item) => (
           <div key={item.label}>
-            <div className="flex justify-between text-xs mb-1">
+            <div className="flex justify-between text-xs mb-2">
               <span className="uppercase text-text-secondary">{item.label}</span>
-              <span className="text-accent-success">{item.value}%</span>
+              <span className="text-accent-primary font-semibold">{item.value}%</span>
             </div>
-            <div className="h-2 bg-bg-tertiary rounded overflow-hidden">
+            <div className="h-2 bg-bg-primary rounded-full overflow-hidden border border-border-default">
               <div
-                className="h-full bg-accent-success transition-[width] duration-700 ease-out"
+                className="h-full bg-accent-primary transition-[width] duration-700 ease-out"
                 style={{ width: animated ? `${item.value}%` : '0%' }}
               />
             </div>

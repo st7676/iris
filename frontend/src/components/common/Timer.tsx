@@ -28,15 +28,15 @@ export default function Timer({ startedAt }: TimerProps) {
   const seconds = elapsedSeconds % 60
   const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 
-  // Past 5 minutes on this scenario, nudge the color toward urgency.
+  // Past 5 minutes on this scenario, shift toward urgency.
   const isUrgent = elapsedSeconds >= 300
   const colorClass = isUrgent
     ? 'text-accent-danger border-accent-danger shadow-[0_0_10px_rgb(var(--glow-danger)/0.4)] animate-pulse'
-    : 'text-accent-info border-accent-info shadow-[0_0_8px_rgb(var(--glow-info)/0.3)]'
+    : 'text-accent-primary border-accent-primary shadow-[0_0_8px_rgb(var(--glow-primary)/0.3)]'
 
   return (
     <div
-      className={`font-mono text-xs uppercase tracking-wide border px-2 py-1 rounded ${colorClass}`}
+      className={`font-mono text-xs uppercase tracking-wide border px-3 py-1 rounded ${colorClass}`}
       title="Time elapsed since incident was reported"
     >
       ⏱ {display}
