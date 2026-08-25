@@ -1,5 +1,5 @@
 from agents.base_agent import BaseAgent
-from prompts.mentor import MENTOR_SYSTEM_PROMPT
+from prompts.mentor import MENTOR_SYSTEM_PROMPT, MENTOR_USER_PROMPT
 from utils.guardrails import sanitize_user_input
 
 
@@ -12,7 +12,7 @@ class AIMentor(BaseAgent):
         safe_question = sanitize_user_input(user_question)
         history_str = " -> ".join(action_history)
         context_str = str(incident_context)
-        prompt = MENTOR_SYSTEM_PROMPT.format(
+        prompt = MENTOR_USER_PROMPT.format(
             user_question=safe_question,
             incident_context=context_str,
             action_history=history_str,

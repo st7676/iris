@@ -7,6 +7,12 @@ from app.core import ai_bridge
 from app.models.schemas import IncidentStatus, Severity
 from app.simulation.evidence import get_mock_evidence
 
+# Only 10,000 possible IDs per calendar year -- collisions become
+# non-trivial once a few hundred incidents exist in the same year (birthday
+# paradox). scenarios.start_scenario retries with a fresh ID a few times
+# on the resulting DuplicateKeyError before giving up.
+INCIDENT_ID_COLLISION_RETRIES = 5
+
 
 def generate_incident_id() -> str:
     year = datetime.now(timezone.utc).year

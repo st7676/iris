@@ -18,21 +18,27 @@ def test_full_silent_login_flow_live(client):
         json={"username": "live_e2e_user", "email": "live_e2e@example.com", "password": "StrongPassw0rd!"},
     )
     assert register.status_code == 201
-    user_id = register.json()["id"]
+    register_body = register.json()
+    user_id = register_body["user"]["id"]
+    token = register_body["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
 
     start = client.post(
         "/api/scenarios/silent_login_v1/start",
         json={"scenario_id": "silent_login_v1", "user_id": user_id},
+        headers=headers,
     )
     assert start.status_code == 201
     incident_id = start.json()["incident_id"]
 
     investigate = client.post(
-        f"/api/incidents/{incident_id}/investigate", json={"evidence_type": "email_logs"}
+        f"/api/incidents/{incident_id}/investigate",
+        json={"evidence_type": "email_logs"},
+        headers=headers,
     )
     assert investigate.status_code == 200
 
-    with client.websocket_connect(f"/ws/incidents/{incident_id}") as ws:
+    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={token}") as ws:
         ws.send_text("checked email logs")
         update = ws.receive_json()
     assert update["type"] == "event_update"
@@ -42,6 +48,7 @@ def test_full_silent_login_flow_live(client):
     hint = client.post(
         f"/api/incidents/{incident_id}/hint",
         json={"user_question": "What should I check next?"},
+        headers=headers,
     )
     assert hint.status_code == 200
     assert len(hint.json()["hint"]) > 0
@@ -50,10 +57,11 @@ def test_full_silent_login_flow_live(client):
     decide = client.post(
         f"/api/incidents/{incident_id}/decide",
         json={"decision": "escalate_to_soc_lead"},
+        headers=headers,
     )
     assert decide.status_code == 200
 
-    complete = client.post(f"/api/incidents/{incident_id}/complete")
+    complete = client.post(f"/api/incidents/{incident_id}/complete", headers=headers)
     assert complete.status_code == 200
     body = complete.json()
     for key in ("detection_score", "decision_score", "response_score"):
@@ -61,5 +69,5 @@ def test_full_silent_login_flow_live(client):
     assert len(body["feedback"]) > 0
     print(f"[Evaluator] score={body['score']} feedback={body['feedback']}")
 
-    final = client.get(f"/api/incidents/{incident_id}")
+    final = client.get(f"/api/incidents/{incident_id}", headers=headers)
     assert final.json()["status"] == "completed"

@@ -7,7 +7,7 @@ import EvidenceCard from '../components/EvidenceCard'
 import ActionButton from '../components/ActionButton'
 import Toast from '../components/common/Toast'
 import Spinner from '../components/common/Spinner'
-import { useSimulationStore } from '../hooks/useSimulation'
+import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
 
@@ -75,7 +75,7 @@ export default function SimulationPage() {
     try {
       const res = await fetch(`${API_BASE}/incidents/${incident.incidentId}/hint`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ user_question: 'איזו פעולה כדאי לי לעשות הבא?' }),
       })
       if (!res.ok) throw new Error('Failed to get hint')

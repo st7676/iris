@@ -1,10 +1,14 @@
 import { useEffect } from 'react'
-import { useSimulationStore } from './useSimulation'
+import { useSimulationStore, getStoredToken } from './useSimulation'
 import { WS_BASE } from '../lib/constants'
 
 export function useWebSocket(incidentId: string) {
   useEffect(() => {
-    const ws = new WebSocket(`${WS_BASE}/incidents/${incidentId}`)
+    // Browsers can't set an Authorization header on a WebSocket handshake,
+    // so the token travels as a query param instead (see
+    // backend/app/main.py's incident_websocket).
+    const token = getStoredToken()
+    const ws = new WebSocket(`${WS_BASE}/incidents/${incidentId}?token=${encodeURIComponent(token ?? '')}`)
 
     ws.onmessage = (event) => {
       const update = JSON.parse(event.data)

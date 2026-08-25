@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Spinner from '../components/common/Spinner'
-import { useSimulationStore } from '../hooks/useSimulation'
+import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
 
 const severityColor = {
@@ -32,7 +32,7 @@ export default function HistoryPage() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/users/${userId}/history`)
+        const res = await fetch(`${API_BASE}/users/${userId}/history`, { headers: getAuthHeaders() })
         if (!res.ok) throw new Error('Failed to fetch history')
         const data = await res.json()
 

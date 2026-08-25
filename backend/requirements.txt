@@ -8,6 +8,7 @@ sqlalchemy
 psycopg2-binary
 openai
 python-dotenv
+python-jose
 pytest
 httpx
 mongomock_motor

@@ -2,6 +2,7 @@
 
 const API_BASE = 'http://localhost:8000/api'
 const STORAGE_KEY = 'iris_user_id'
+const TOKEN_STORAGE_KEY = 'iris_access_token'
 
 function getStoredUserId(): string | null {
   return localStorage.getItem(STORAGE_KEY)
@@ -13,6 +14,27 @@ function storeUserId(id: string): void {
 
 function clearStoredUserId(): void {
   localStorage.removeItem(STORAGE_KEY)
+}
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_STORAGE_KEY)
+}
+
+function storeToken(token: string): void {
+  localStorage.setItem(TOKEN_STORAGE_KEY, token)
+}
+
+function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_STORAGE_KEY)
+}
+
+// Every endpoint except /users/register and /users/login requires this
+// (see backend/app/deps.py's get_current_user_id) -- exported so pages that
+// fetch() directly (ReportPage, HistoryPage, InstructorDashboardPage, ...)
+// can attach it without duplicating the localStorage read.
+export function getAuthHeaders(): Record<string, string> {
+  const token = getStoredToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function loginUser(username: string, password: string) {
@@ -49,7 +71,7 @@ async function registerUser(username: string, password: string, email?: string) 
 async function startScenario(userId: string, scenarioId: string = 'silent_login_v1') {
   const res = await fetch(`${API_BASE}/scenarios/${scenarioId}/start`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ scenario_id: scenarioId, user_id: userId }),
   })
   if (!res.ok) throw new Error(`Start scenario failed: ${res.status}`)
@@ -73,7 +95,7 @@ async function apiInvestigate(incidentId: string, label: string) {
   const evidenceType = evidenceTypeMap[label] ?? label
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/investigate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ evidence_type: evidenceType }),
   })
   if (!res.ok) throw new Error(`Investigate failed: ${res.status}`)
@@ -84,7 +106,7 @@ async function apiDecide(incidentId: string, label: string) {
   const decision = decisionMap[label] ?? label
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/decide`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ decision, notes: '' }),
   })
   if (!res.ok) throw new Error(`Decide failed: ${res.status}`)
@@ -159,6 +181,7 @@ interface SimulationState {
   actionLog: ActionLogEntry[]
   completed: boolean
   userId: string | null
+  token: string | null
   login: (username: string, password: string, isRegister?: boolean) => Promise<void>
   logout: () => void
   startSimulation: (scenarioId?: string) => Promise<void>
@@ -174,14 +197,16 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   actionLog: [],
   completed: false,
   userId: getStoredUserId(),
+  token: getStoredToken(),
 
   login: async (username: string, password: string, isRegister = false) => {
     try {
-      const user = isRegister
+      const data = isRegister
         ? await registerUser(username, password)
         : await loginUser(username, password)
-      storeUserId(user.id)
-      set({ userId: user.id })
+      storeUserId(data.user.id)
+      storeToken(data.access_token)
+      set({ userId: data.user.id, token: data.access_token })
     } catch (error) {
       throw error
     }
@@ -189,7 +214,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
 
   logout: () => {
     clearStoredUserId()
-    set({ userId: null })
+    clearStoredToken()
+    set({ userId: null, token: null })
   },
 
   startSimulation: async (scenarioId = 'silent_login_v1') => {

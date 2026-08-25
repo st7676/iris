@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Spinner from '../components/common/Spinner'
+import { getAuthHeaders } from '../hooks/useSimulation'
 
 interface DashboardData {
   total_sessions: number
@@ -24,7 +25,9 @@ export default function InstructorDashboardPage() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/instructor/dashboard')
+        const res = await fetch('http://localhost:8000/api/instructor/dashboard', {
+          headers: getAuthHeaders(),
+        })
         if (!res.ok) throw new Error(`Failed: ${res.status}`)
         const data = await res.json()
         setDashboard(data)

@@ -80,29 +80,43 @@ Technical Spec.
 
 ## API endpoints
 
+### Authentication
+
+`register` and `login` are the only unauthenticated endpoints. Both return a JWT
+`access_token` alongside the user; every other endpoint below requires it as
+`Authorization: Bearer <access_token>` (or, for the WebSocket, as a `?token=` query
+param -- browsers can't set custom headers on a WebSocket handshake). Tokens are
+verified by signature only (see `app/core/security.py`), expire after
+`JWT_EXPIRE_MINUTES` (default: 1 day), and are scoped to a single user: routes that
+take a `user_id`/`incident_id` reject the request with `403` if the token's user
+doesn't match.
+
 ### Users
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/users/register` | Register a new user |
-| GET | `/api/users/{user_id}` | Get a user by id |
-| GET | `/api/users/{user_id}/history` | Get a user's past session scores |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/users/register` | none | Register a new user, returns `{access_token, user}` |
+| POST | `/api/users/login` | none | Log in, returns `{access_token, user}` |
+| GET | `/api/users/{user_id}` | bearer, self only | Get a user by id |
+| GET | `/api/users/{user_id}/history` | bearer, self only | Get a user's past session scores |
 
 ```bash
 curl -X POST http://localhost:8000/api/users/register \
   -H "Content-Type: application/json" \
   -d '{"username": "sara_soc", "email": "sara@example.com", "password": "StrongPassw0rd!"}'
+# => {"access_token": "eyJ...", "token_type": "bearer", "user": {"id": "...", ...}}
 ```
 
 ### Scenarios
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/scenarios/{scenario_id}/start` | Start a new incident from a scenario |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/scenarios/{scenario_id}/start` | bearer, self only | Start a new incident from a scenario |
 
 ```bash
 curl -X POST http://localhost:8000/api/scenarios/silent_login_v1/start \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"scenario_id": "silent_login_v1", "user_id": "123e4567-e89b-12d3-a456-426614174000"}'
 ```
 
@@ -121,6 +135,9 @@ Response:
 
 ### Incidents
 
+All incident routes require `Authorization: Bearer $ACCESS_TOKEN` and return `403` if
+the token's user doesn't own the incident.
+
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/incidents/{incident_id}` | Get the full incident (status, evidence, action log) |
@@ -129,24 +146,29 @@ Response:
 | POST | `/api/incidents/{incident_id}/hint` | Ask AI Mentor for a graduated hint (never the answer outright) |
 | POST | `/api/incidents/{incident_id}/complete` | End the simulation; AI Evaluator scores it and records `session_scores` |
 | GET | `/api/incidents/{incident_id}/report` | Re-fetch a completed incident's report (score, categories, ideal vs. actual chain, feedback) |
-| WS | `/ws/incidents/{incident_id}` | Live event updates for the incident (AI Commander) |
+| WS | `/ws/incidents/{incident_id}?token=$ACCESS_TOKEN` | Live event updates for the incident (AI Commander) |
 
 ```bash
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/investigate \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"evidence_type": "auth_logs"}'
 
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/decide \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"decision": "escalate_to_soc_lead", "notes": "Multiple failed logins from an unrecognized location."}'
 
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/hint \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"user_question": "What should I check first?"}'
 
-curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete
+curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
-curl http://localhost:8000/api/incidents/SF-2026-0142/report
+curl http://localhost:8000/api/incidents/SF-2026-0142/report \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 Checking `auth_logs` within 60 seconds of the incident starting lowers severity by one
@@ -165,12 +187,18 @@ the resulting score is also written to PostgreSQL's `session_scores`, so it show
 ## Configuration
 
 All configuration is environment-based via [`app/core/config.py`](app/core/config.py)
-(`DATABASE_URL`, `MONGODB_URL`, `MONGODB_DB_NAME`) — see `.env.example` — plus
-`ai_services/.env` for `OPENAI_API_KEY` and friends (see
-[`ai_services/.env.example`](../ai_services/.env.example)). There are no hardcoded
-credentials in application code; the `secret` Postgres password in `docker-compose.yml`
-is a local-only default for the Dockerized dev database (user `postgres`, matching
-Postgres's default when `POSTGRES_USER` isn't set), not a real credential.
+(`DATABASE_URL`, `MONGODB_URL`, `MONGODB_DB_NAME`, `CORS_ALLOWED_ORIGINS`,
+`JWT_SECRET_KEY`) — see `.env.example` — plus `ai_services/.env` for `OPENAI_API_KEY`
+and friends (see [`ai_services/.env.example`](../ai_services/.env.example)). There are
+no hardcoded credentials in application code; the `secret` Postgres password in
+`docker-compose.yml` is a local-only default for the Dockerized dev database (user
+`postgres`, matching Postgres's default when `POSTGRES_USER` isn't set), not a real
+credential.
+
+`JWT_SECRET_KEY` defaults to a fixed, publicly-known dev value so login tokens keep
+working across restarts/multiple workers in local dev without any setup — **it must be
+overridden to a long random value in every other environment**, or anyone can forge a
+valid token for any user id.
 
 If PostgreSQL is unreachable at startup or at request time, the API logs a warning and
 keeps working for the core Mongo-backed simulation flow (start/investigate/decide/hint/

@@ -1,14 +1,19 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.postgres import SessionScore
-from app.deps import get_db
+from app.deps import get_current_user_id, get_db
 
 router = APIRouter(prefix="/api/instructor", tags=["instructor"])
 
 
 @router.get("/dashboard")
-def get_instructor_dashboard(db: Session = Depends(get_db)) -> dict:
+def get_instructor_dashboard(
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
     scores = db.query(SessionScore).all()
 
     if not scores:

@@ -28,7 +28,9 @@ Important constraints:
 - When the user makes a good decision, acknowledge it in one short clause, then
   escalate with a new concrete development from the current scenario -- don't just
   repeat the current state back to them.
+"""
 
+COMMANDER_USER_PROMPT = """
 Current Incident State: {incident_context}
 User's Last Action: {last_action}
 Current Severity: {severity}
