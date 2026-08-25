@@ -4,11 +4,14 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.routes import incidents, instructor, scenarios, users
 from app.core.config import settings
 from app.core.logging_config import configure_logging
-from app.core.security import decode_access_token
+from app.core.rate_limit import limiter
+from app.core.security import decode_ws_ticket
 from app.core.ws_manager import manager
 from app.db.init_db import init_db
 from app.db.mongodb import incidents_collection
@@ -18,6 +21,9 @@ configure_logging()
 logger = logging.getLogger("iris.websocket")
 
 app = FastAPI(title="Iris Backend API")
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,12 +52,15 @@ def read_root():
 @app.websocket("/ws/incidents/{incident_id}")
 async def incident_websocket(websocket: WebSocket, incident_id: str) -> None:
     # Browsers can't set an Authorization header on a WebSocket handshake,
-    # so the access token travels as a query param instead (e.g.
-    # /ws/incidents/{incident_id}?token=...) -- same JWT issued by
-    # /api/users/login and /register, just a different transport.
+    # so a token travels as a query param instead (e.g.
+    # /ws/incidents/{incident_id}?token=...). Deliberately a short-lived
+    # ws-ticket (POST /api/users/ws-ticket), not the normal access token --
+    # a day-long-lived credential sitting in a URL is needlessly exposed
+    # to server access logs and browser history for far longer than the
+    # handshake actually needs it.
     token = websocket.query_params.get("token")
     try:
-        current_user_id = decode_access_token(token) if token else None
+        current_user_id = decode_ws_ticket(token) if token else None
     except ValueError:
         current_user_id = None
     if current_user_id is None:

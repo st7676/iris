@@ -38,6 +38,22 @@ export function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+// The WebSocket handshake can't carry an Authorization header, so it needs
+// a token in the URL instead -- but the normal access token is valid for a
+// day, far longer than a handshake needs to sit exposed in a URL (server
+// logs, browser history). Exchange it for a short-lived, single-purpose
+// ticket right before connecting (see backend/app/core/security.py's
+// create_ws_ticket / POST /api/users/ws-ticket).
+export async function getWsTicket(): Promise<string> {
+  const res = await fetch(`${API_BASE}/users/ws-ticket`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) throw new Error(`Failed to get WS ticket: ${res.status}`)
+  const data = await res.json()
+  return data.ws_ticket
+}
+
 async function loginUser(username: string, password: string) {
   const res = await fetch(`${API_BASE}/users/login`, {
     method: 'POST',

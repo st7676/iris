@@ -131,6 +131,22 @@ def postgres_db():
     app.dependency_overrides.pop(get_db, None)
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """
+    /register and /login are rate-limited per-IP (see app/core/rate_limit.py)
+    to block brute-force/spam. slowapi's in-memory storage persists across
+    the whole pytest run otherwise -- every test's TestClient looks like the
+    same "IP" to it, so tests that register several users (a normal thing to
+    do in this suite) would start tripping the limiter well before hitting
+    any real bug. Reset before each test so the limit only ever applies
+    within a single test's own requests.
+    """
+    from app.core.rate_limit import limiter
+
+    limiter.reset()
+
+
 @pytest.fixture
 def client(mongo_db, postgres_db):
     from app.main import app

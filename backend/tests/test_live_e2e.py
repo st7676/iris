@@ -38,7 +38,11 @@ def test_full_silent_login_flow_live(client):
     )
     assert investigate.status_code == 200
 
-    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={token}") as ws:
+    ticket_response = client.post("/api/users/ws-ticket", headers=headers)
+    assert ticket_response.status_code == 200
+    ws_ticket = ticket_response.json()["ws_ticket"]
+
+    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={ws_ticket}") as ws:
         ws.send_text("checked email logs")
         update = ws.receive_json()
     assert update["type"] == "event_update"

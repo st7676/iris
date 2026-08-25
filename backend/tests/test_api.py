@@ -34,6 +34,15 @@ def _start_incident(client, scenario_id: str = "silent_login_v1") -> tuple[str, 
     return response.json()["incident_id"], headers, token
 
 
+def _ws_ticket(client, headers: dict) -> str:
+    """The WS handshake takes a short-lived ws-ticket, not the normal
+    access token (see app/core/security.py's create_ws_ticket) -- exchange
+    one using the caller's Authorization header."""
+    response = client.post("/api/users/ws-ticket", headers=headers)
+    assert response.status_code == 200
+    return response.json()["ws_ticket"]
+
+
 def test_read_root(client):
     response = client.get("/")
     assert response.status_code == 200
@@ -88,6 +97,14 @@ def test_register_degrades_gracefully_when_postgres_unreachable(client, monkeypa
     assert "id" in body["user"]  # a real (ephemeral) UUID, so scenario/start etc. still work
 
 
+def test_register_rejects_short_password(client):
+    response = client.post(
+        "/api/users/register",
+        json={"username": "short_pw_user", "email": "short_pw@example.com", "password": "abc123"},
+    )
+    assert response.status_code == 422
+
+
 def test_ephemeral_user_can_start_a_scenario_after_postgres_recovers(client, monkeypatch):
     """
     Regression test: a user registered while Postgres was down (see the
@@ -136,6 +153,54 @@ def test_ephemeral_user_can_start_a_scenario_after_postgres_recovers(client, mon
         headers=headers,
     )
     assert start_response.status_code == 201
+
+
+def test_register_is_rate_limited_per_ip(client):
+    """
+    /register has no CAPTCHA/email verification, so without a rate limit
+    it's an open door for account-creation spam or, on /login, a
+    brute-force oracle. See app/core/rate_limit.py (5/minute for
+    /register). TestClient requests all share one "IP" from slowapi's
+    point of view, so 6 rapid registrations from the same client should
+    trip the limiter on the 6th.
+    """
+    for i in range(5):
+        response = client.post(
+            "/api/users/register",
+            json={
+                "username": f"rate_limit_user_{i}",
+                "email": f"rate_limit_{i}@example.com",
+                "password": "StrongPassw0rd!",
+            },
+        )
+        assert response.status_code == 201
+
+    sixth = client.post(
+        "/api/users/register",
+        json={
+            "username": "rate_limit_user_6",
+            "email": "rate_limit_6@example.com",
+            "password": "StrongPassw0rd!",
+        },
+    )
+    assert sixth.status_code == 429
+
+
+def test_login_is_rate_limited_per_ip(client):
+    """See app/core/rate_limit.py (10/minute for /login) -- guards against
+    password brute-forcing a known username."""
+    for _ in range(10):
+        response = client.post(
+            "/api/users/login",
+            json={"username": "nonexistent_user", "password": "wrong"},
+        )
+        assert response.status_code == 401
+
+    eleventh = client.post(
+        "/api/users/login",
+        json={"username": "nonexistent_user", "password": "wrong"},
+    )
+    assert eleventh.status_code == 429
 
 
 def test_start_scenario(client):
@@ -350,8 +415,9 @@ def test_decide_incident_not_found(client):
 
 
 def test_websocket_event_update(client):
-    incident_id, _, token = _start_incident(client)
-    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={token}") as ws:
+    incident_id, headers, _ = _start_incident(client)
+    ticket = _ws_ticket(client, headers)
+    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={ticket}") as ws:
         ws.send_text("checked email logs")
         data = ws.receive_json()
         assert data["type"] == "event_update"
@@ -372,8 +438,9 @@ def test_investigate_broadcasts_commander_update_without_client_prompting(client
     Commander and push the update live, not require the client to send a
     WebSocket message asking for one.
     """
-    incident_id, headers, token = _start_incident(client)
-    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={token}") as ws:
+    incident_id, headers, _ = _start_incident(client)
+    ticket = _ws_ticket(client, headers)
+    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={ticket}") as ws:
         response = client.post(
             f"/api/incidents/{incident_id}/investigate",
             json={"evidence_type": "auth_logs"},
@@ -388,9 +455,10 @@ def test_investigate_broadcasts_commander_update_without_client_prompting(client
 
 
 def test_websocket_rejects_unknown_incident(client):
-    _, _, token = _register_user(client)
+    _, headers, _ = _register_user(client)
+    ticket = _ws_ticket(client, headers)
     with pytest.raises(Exception):
-        with client.websocket_connect(f"/ws/incidents/DOES-NOT-EXIST?token={token}") as ws:
+        with client.websocket_connect(f"/ws/incidents/DOES-NOT-EXIST?token={ticket}") as ws:
             ws.receive_text()
 
 
@@ -503,14 +571,15 @@ def test_complete_returns_503_when_ai_evaluator_fails(client, monkeypatch):
 def test_websocket_sends_fallback_message_when_ai_commander_fails(client, monkeypatch):
     from app.core import ai_bridge
 
-    incident_id, _, token = _start_incident(client)
+    incident_id, headers, _ = _start_incident(client)
+    ticket = _ws_ticket(client, headers)
 
     def _raise(*args, **kwargs):
         raise TimeoutError("OpenAI request timed out")
 
     monkeypatch.setattr(ai_bridge.commander, "generate_update", _raise)
 
-    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={token}") as ws:
+    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={ticket}") as ws:
         ws.send_text("checked email logs")
         data = ws.receive_json()
         assert data["type"] == "event_update"

@@ -3,11 +3,12 @@ import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.rate_limit import limiter
+from app.core.security import create_access_token, create_ws_ticket, hash_password, verify_password
 from app.db.mongodb import ephemeral_users_collection
 from app.db.postgres import SessionScore, User
 from app.deps import get_current_user_id, get_db
@@ -26,7 +27,10 @@ def _issue_token(user: User) -> TokenResponse:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> TokenResponse:
+@limiter.limit("5/minute")
+async def register_user(
+    request: Request, payload: UserCreate, db: Session = Depends(get_db)
+) -> TokenResponse:
     try:
         existing = (
             db.query(User)
@@ -96,11 +100,25 @@ async def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> T
 
 
 @router.post("/login", response_model=TokenResponse)
-def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
+@limiter.limit("10/minute")
+def login_user(request: Request, payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return _issue_token(user)
+
+
+@router.post("/ws-ticket")
+def issue_ws_ticket(current_user_id: UUID = Depends(get_current_user_id)) -> dict:
+    """
+    Exchanges the caller's normal access token for a short-lived,
+    single-purpose ticket for the incident WebSocket handshake (see
+    app/core/security.py's create_ws_ticket -- browsers can't set an
+    Authorization header on a WebSocket connection, so the token has to
+    go in the URL, and a ticket that expires in seconds is far less
+    exposed there than a day-long access token would be).
+    """
+    return {"ws_ticket": create_ws_ticket(current_user_id)}
 
 
 @router.get("/{user_id}", response_model=UserResponse)
