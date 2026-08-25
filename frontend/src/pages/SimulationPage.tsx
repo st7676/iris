@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
@@ -10,6 +10,7 @@ import Spinner from '../components/common/Spinner'
 import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
+import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -18,22 +19,62 @@ const mockLogs = [
   { time: '10:36', source: 'file', type: 'ACCESS', details: '/shared/secrets.xlsx' },
 ]
 
+// Proactive nudge: if the analyst hasn't taken any action for this long,
+// surface a Commander-styled reminder instead of leaving them stuck
+// staring at the screen (per the "leave room to choose, but don't let
+// them stall" UX goal).
+const IDLE_NUDGE_MS = 30_000
+
 export default function SimulationPage() {
   const navigate = useNavigate()
-  const { incident, timeline, evidence, startSimulation, investigateEvidence, decide, completeSimulation } =
+  const location = useLocation()
+  const { incident, timeline, evidence, actionLog, startSimulation, investigateEvidence, decide, completeSimulation } =
     useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Scenario picked on HomePage/BriefingPage, passed via navigation state
+  // (see navigate('/simulation', { state: { scenarioId } })). Falls back
+  // to the default if this page is reached directly (e.g. a refresh).
+  const requestedScenarioId =
+    (location.state as { scenarioId?: string } | null)?.scenarioId ?? DEFAULT_SCENARIO_ID
+
   useEffect(() => {
+    // Normally the incident is already started by BriefingPage before we
+    // ever get here -- this only fires as a fallback (e.g. landing on
+    // /simulation directly via a refresh).
     if (!incident) {
-      startSimulation('silent_login_v1').catch((err) => {
+      startSimulation(requestedScenarioId).catch((err) => {
         setToastMessage(`Failed to start simulation: ${err instanceof Error ? err.message : 'Unknown error'}`)
       })
     }
-  }, [incident, startSimulation])
+  }, [incident, requestedScenarioId, startSimulation])
 
   useWebSocket(incident?.incidentId || '')
+
+  // Idle nudge: resets on every investigate/decide action. Purely a UI
+  // reminder (styled like a Commander alert) -- it does not make an AI
+  // call, so it costs nothing and can't get stuck waiting on the network.
+  useEffect(() => {
+    if (!incident || incident.incidentId === 'SF-2026-ERROR') return
+
+    // Tracks the "clear the nudge toast" timer too, not just the nudge
+    // itself -- otherwise it's never cancelled by this effect's cleanup,
+    // and it can fire later and wipe a newer, unrelated toast (e.g. from
+    // an investigate/decide action taken shortly after the nudge).
+    let dismissTimer: ReturnType<typeof setTimeout> | undefined
+
+    const nudgeTimer = setTimeout(() => {
+      setToastMessage('⚠ Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.')
+      dismissTimer = setTimeout(() => setToastMessage(null), 5000)
+    }, IDLE_NUDGE_MS)
+
+    return () => {
+      clearTimeout(nudgeTimer)
+      if (dismissTimer) clearTimeout(dismissTimer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incident?.incidentId, actionLog.length])
 
   const handleInvestigate = async (label: string) => {
     try {
@@ -97,20 +138,22 @@ export default function SimulationPage() {
     )
   }
 
+  const scenario = getScenario(incident.scenarioId)
+
   return (
     <div className="page min-h-screen bg-bg-primary text-text-primary">
       <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
 
-      <div
-        className="hud-frame mx-4 mt-4 border-2 border-accent-danger bg-accent-danger/10 rounded p-5 animate-pulse"
-        style={{ ['--hud-color' as string]: 'var(--color-accent-danger)', animationDuration: '2.5s' }}
-      >
-        <h2 className="text-xs uppercase tracking-[0.3em] text-accent-danger mb-1">
-          ⚠ Active Alert
-        </h2>
-        <p className="briefing-glow text-xl sm:text-2xl font-bold text-text-primary">
-          {incident.alertMessage}
-        </p>
+      <div className="mx-4 mt-4 overflow-hidden rounded border-2 border-accent-danger shadow-[0_0_30px_rgb(var(--glow-danger)/0.35)]">
+        <div className="flex items-center gap-2 bg-accent-danger px-4 py-1.5">
+          <span className="stamp !border-white/80 !text-white !py-0 !px-2 text-[10px]">Breaking</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-white/90">{scenario.title} — Case File Open</span>
+        </div>
+        <div className="bg-accent-danger/10 p-5">
+          <p className="font-display briefing-glow text-xl sm:text-2xl text-text-primary">
+            {incident.alertMessage}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4">
@@ -120,11 +163,13 @@ export default function SimulationPage() {
             <EventTimeline steps={timeline} />
           </div>
 
-          <div className="hud-frame border border-border-default rounded p-4">
-            <h2 className="text-sm uppercase text-text-secondary mb-2">Evidence</h2>
-            <div className="space-y-2">
+          <div className="cork-board rounded p-4">
+            <h2 className="font-display text-sm uppercase tracking-wide text-paper mb-3 inline-block bg-bg-primary/70 px-2 py-1 rounded">
+              Evidence Board
+            </h2>
+            <div className="space-y-4 pt-1">
               {evidence.length === 0 && (
-                <p className="text-xs text-text-secondary">No evidence revealed yet. Investigate to find clues.</p>
+                <p className="text-xs text-[#f0e6d0] bg-black/30 rounded p-2">No evidence revealed yet. Investigate to find clues.</p>
               )}
               {evidence.map((item) => (
                 <EvidenceCard
@@ -149,13 +194,42 @@ export default function SimulationPage() {
           <div className="border border-border-default rounded p-4">
             <h2 className="text-sm uppercase text-text-secondary mb-2">Actions</h2>
             <div className="flex flex-wrap gap-2">
-              <ActionButton label="Check Email Logs" onClick={() => handleInvestigate('Check Email Logs')} disabled={loading} />
-              <ActionButton label="Check Auth Logs" onClick={() => handleInvestigate('Check Auth Logs')} disabled={loading} />
-              <ActionButton label="Reset Password + MFA" onClick={() => handleDecide('Reset Password + MFA')} disabled={loading} />
-              <ActionButton label="Isolate Device" variant="danger" onClick={() => handleDecide('Isolate Device')} disabled={loading} />
-              <ActionButton label="💡 Get Hint" onClick={handleGetHint} variant="secondary" disabled={loading} />
+              {scenario.investigativeActions.map((action) => (
+                <ActionButton
+                  key={action.label}
+                  label={action.label}
+                  onClick={() => handleInvestigate(action.label)}
+                  disabled={loading}
+                />
+              ))}
+              {scenario.responseActions.map((action) => (
+                <ActionButton
+                  key={action.label}
+                  label={action.label}
+                  variant={action.variant ?? 'default'}
+                  onClick={() => handleDecide(action.label)}
+                  disabled={loading}
+                />
+              ))}
             </div>
           </div>
+
+          {/* Mentor hint: its own highlighted block, not just one button
+              lost among the others -- this is the escape-room "ask for a
+              clue" moment and should read as a distinct, inviting action. */}
+          <button
+            onClick={handleGetHint}
+            disabled={loading}
+            className="hud-frame w-full border-2 border-accent-info bg-accent-info/10 rounded p-4 text-left hover:bg-accent-info/20 hover:shadow-[0_0_20px_rgb(var(--glow-info)/0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ ['--hud-color' as string]: 'var(--color-accent-info)' }}
+          >
+            <p className="text-sm font-bold uppercase tracking-wide text-accent-info">
+              💡 Ask Your Mentor for a Hint
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              Stuck? Get a nudge in the right direction — never the answer itself.
+            </p>
+          </button>
 
           <div className="border border-border-default rounded p-4 text-right">
             <ActionButton label="Complete Simulation" onClick={handleComplete} />

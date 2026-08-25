@@ -40,8 +40,15 @@ input / 181 output), which is **~$0.005** at `gpt-4o` pricing ($2.50/1M input,
 $10/1M output). A full session (Commander fires on every `/investigate` call, so
 realistically 3-5 updates + 1-2 hints + 1 evaluation) comes out well under $0.02 in
 practice — the earlier "$0.10" figure here was an untested upper-bound guess; the
-real number is roughly 5-10x cheaper. Token usage for every call is captured in
-`OpenAIClient.last_usage` and included in the observability log (see below).
+real number is roughly 5-10x cheaper. Token usage is returned directly from
+`OpenAIClient.call()` for each call and included in the observability log (see
+below) -- earlier this was stashed on a `last_usage` instance attribute instead,
+which was a real bug: Commander/Mentor/Evaluator are singletons sharing one
+`OpenAIClient` each, and concurrent requests on different threads could
+overwrite it before the right caller read it back, misattributing token counts
+between unrelated calls. Fixed and covered by
+`tests/test_openai_client_thread_safety.py` (50 concurrent calls, mocked, no
+real API cost).
 
 ## Backend integration
 
@@ -146,8 +153,10 @@ Section 10:
   block a request (or the incident WebSocket loop) indefinitely.
 - Retry with exponential backoff (`OPENAI_MAX_RATE_LIMIT_RETRIES`, default 2 --
   so up to 3 attempts total) specifically on `RateLimitError` (HTTP 429), since
-  those are transient. Verified by simulating a flaky API that fails twice then
-  succeeds.
+  those are transient. Verified in `tests/test_openai_client_rate_limit_retry.py`
+  (mocked, no real API cost): a flaky client that fails twice then succeeds
+  recovers, and a client that never recovers correctly falls back to
+  `OPENAI_FALLBACK_MODEL` after exhausting retries.
 - A fallback model (`OPENAI_FALLBACK_MODEL`) that's used automatically if the
   primary model still errors after retries. Currently both `OPENAI_MODEL` and
   `OPENAI_FALLBACK_MODEL` are set to `gpt-4o-mini` to conserve credit during

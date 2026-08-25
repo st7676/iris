@@ -4,10 +4,11 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, hash_password, verify_password
+from app.db.mongodb import ephemeral_users_collection
 from app.db.postgres import SessionScore, User
 from app.deps import get_current_user_id, get_db
 from app.models.user import TokenResponse, UserCreate, UserLogin, UserResponse
@@ -25,7 +26,7 @@ def _issue_token(user: User) -> TokenResponse:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> TokenResponse:
+async def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> TokenResponse:
     try:
         existing = (
             db.query(User)
@@ -45,12 +46,12 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> TokenRe
         db.refresh(user)
         return _issue_token(user)
     except IntegrityError:
-        # Two concurrent registrations can both pass the existence check
-        # above and race to commit -- the loser hits the DB's unique
-        # constraint instead of the app-level check.
+        # Two concurrent registrations for the same username/email both
+        # passed the SELECT above, then one INSERT won and this one lost
+        # the unique constraint -- a real duplicate, not an outage.
         db.rollback()
         raise HTTPException(status_code=409, detail="Username or email already registered")
-    except OperationalError:
+    except SQLAlchemyError:
         # Registration is the very first thing the Frontend does on every
         # "Start Simulation" click (see useSimulation.ts) -- if this hard
         # fails whenever Postgres isn't up, the entire Mongo-backed
@@ -61,19 +62,35 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> TokenRe
         # a real row, but let the user through with an ephemeral id so
         # the rest of the flow works. History/session_scores won't be
         # available for this user until Postgres is back.
+        #
+        # The ephemeral id IS recorded in Mongo (always-available here),
+        # so scenarios.py's _user_exists() can still recognize it even
+        # after Postgres recovers -- otherwise a user registered during a
+        # blip would get a confusing 404 on /scenarios/{id}/start the
+        # moment Postgres came back up.
         db.rollback()
         logger.warning(
             "PostgreSQL unreachable -- creating an ephemeral (non-persisted) "
             "user for %s so the Mongo-backed simulation flow can still proceed.",
             payload.username,
         )
+        ephemeral_id = uuid.uuid4()
+        created_at = datetime.now(timezone.utc)
+        await ephemeral_users_collection.insert_one(
+            {
+                "_id": str(ephemeral_id),
+                "username": payload.username,
+                "email": payload.email,
+                "created_at": created_at,
+            }
+        )
         return _issue_token(
             User(
-                id=uuid.uuid4(),
+                id=ephemeral_id,
                 username=payload.username,
                 email=payload.email,
                 hashed_password="",
-                created_at=datetime.now(timezone.utc),
+                created_at=created_at,
             )
         )
 
@@ -96,7 +113,7 @@ def get_user(
         raise HTTPException(status_code=403, detail="Not authorized to view this user")
     try:
         user = db.get(User, user_id)
-    except OperationalError:
+    except SQLAlchemyError:
         raise HTTPException(
             status_code=503, detail="User data temporarily unavailable (PostgreSQL unreachable)"
         )
@@ -125,7 +142,7 @@ def get_user_history(
             .order_by(SessionScore.completed_at.desc())
             .all()
         )
-    except OperationalError:
+    except SQLAlchemyError:
         # Same graceful-degradation pattern as register_user's ephemeral-user
         # fallback: an ephemeral (non-persisted) user has no real row to look
         # up when Postgres is down -- treat "can't check" as "nothing

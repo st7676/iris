@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import LiveStatusBar from './components/common/LiveStatusBar'
 import HomePage from './pages/HomePage'
+import BriefingPage from './pages/BriefingPage'
 import SimulationPage from './pages/SimulationPage'
 import ReportPage from './pages/ReportPage'
 import HistoryPage from './pages/HistoryPage'
@@ -24,14 +26,18 @@ function App() {
   if (!mounted) return null
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={userId ? <HomePage /> : <Navigate to="/login" replace />} />
-      <Route path="/simulation" element={<ProtectedRoute element={<SimulationPage />} />} />
-      <Route path="/report" element={<ProtectedRoute element={<ReportPage />} />} />
-      <Route path="/history" element={<ProtectedRoute element={<HistoryPage />} />} />
-      <Route path="/instructor-dashboard" element={<ProtectedRoute element={<InstructorDashboardPage />} />} />
-    </Routes>
+    <>
+      <LiveStatusBar />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={userId ? <HomePage /> : <Navigate to="/login" replace />} />
+        <Route path="/briefing/:scenarioId" element={<ProtectedRoute element={<BriefingPage />} />} />
+        <Route path="/simulation" element={<ProtectedRoute element={<SimulationPage />} />} />
+        <Route path="/report" element={<ProtectedRoute element={<ReportPage />} />} />
+        <Route path="/history" element={<ProtectedRoute element={<HistoryPage />} />} />
+        <Route path="/instructor-dashboard" element={<ProtectedRoute element={<InstructorDashboardPage />} />} />
+      </Routes>
+    </>
   )
 }
 

@@ -33,6 +33,41 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
+# Action names coordinated ahead of time with the AI prompts
+# (ai_services/tests/test_insider_threat.py) so the Evaluator's
+# ideal_reasoning_chain comparison is meaningful from day one.
+INSIDER_THREAT_SCENARIO = {
+    "scenario_id": "insider_threat_v1",
+    "title": "Insider Threat",
+    "description": "A departing employee accessed sensitive files outside business hours.",
+    "initial_severity": "medium",
+    "initial_alert_message": "Departing employee accessed sensitive files outside business hours.",
+    "ideal_reasoning_chain": [
+        {
+            "step": 1,
+            "action": "check_hr_status",
+            "rationale": "Confirm offboarding status first",
+        },
+        {
+            "step": 2,
+            "action": "check_file_access_logs",
+            "rationale": "Identify what was accessed",
+        },
+        {
+            "step": 3,
+            "action": "check_usb_device_logs",
+            "rationale": "Check for data exfiltration via USB",
+        },
+        {
+            "step": 4,
+            "action": "revoke_access",
+            "rationale": "Contain by revoking access immediately",
+        },
+    ],
+}
+
+SCENARIOS = [SILENT_LOGIN_SCENARIO, INSIDER_THREAT_SCENARIO]
+
 
 def create_postgres_tables() -> None:
     Base.metadata.create_all(bind=engine)
@@ -41,27 +76,29 @@ def create_postgres_tables() -> None:
 def seed_postgres() -> None:
     db = SessionLocal()
     try:
-        exists = db.get(ScenarioMetadata, SILENT_LOGIN_SCENARIO["scenario_id"])
-        if not exists:
-            db.add(
-                ScenarioMetadata(
-                    scenario_id=SILENT_LOGIN_SCENARIO["scenario_id"],
-                    title=SILENT_LOGIN_SCENARIO["title"],
-                    difficulty="medium",
-                    times_played=0,
+        for scenario in SCENARIOS:
+            exists = db.get(ScenarioMetadata, scenario["scenario_id"])
+            if not exists:
+                db.add(
+                    ScenarioMetadata(
+                        scenario_id=scenario["scenario_id"],
+                        title=scenario["title"],
+                        difficulty="medium",
+                        times_played=0,
+                    )
                 )
-            )
-            db.commit()
+        db.commit()
     finally:
         db.close()
 
 
 async def seed_mongo() -> None:
-    existing = await scenarios_collection.find_one(
-        {"scenario_id": SILENT_LOGIN_SCENARIO["scenario_id"]}
-    )
-    if not existing:
-        await scenarios_collection.insert_one(dict(SILENT_LOGIN_SCENARIO))
+    for scenario in SCENARIOS:
+        existing = await scenarios_collection.find_one(
+            {"scenario_id": scenario["scenario_id"]}
+        )
+        if not existing:
+            await scenarios_collection.insert_one(dict(scenario))
 
 
 async def create_mongo_indexes() -> None:

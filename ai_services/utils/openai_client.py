@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from pathlib import Path
@@ -13,6 +14,8 @@ from openai import OpenAI, RateLimitError
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=_ENV_PATH)
 
+logger = logging.getLogger("iris.ai.openai_client")
+
 
 class OpenAIClient:
     def __init__(self):
@@ -26,7 +29,10 @@ class OpenAIClient:
         # doesn't block a request (or the incident WebSocket loop)
         # indefinitely -- not the expected happy path.
         self.timeout_seconds = float(os.getenv("OPENAI_TIMEOUT_SECONDS", 8))
-        self.max_rate_limit_retries = int(os.getenv("OPENAI_MAX_RATE_LIMIT_RETRIES", 2))
+        # Clamped to >=0: a misconfigured negative value must not skip the
+        # retry loop's only iteration, which would leave `last_error`
+        # unset and turn a real RateLimitError into a bare `raise None`.
+        self.max_rate_limit_retries = max(0, int(os.getenv("OPENAI_MAX_RATE_LIMIT_RETRIES", 2)))
 
     def call(self, system_prompt: str, user_message: str) -> tuple[str, dict | None]:
         """
@@ -35,11 +41,16 @@ class OpenAIClient:
         the Team Workflow's "AI latency too high" risk mitigation
         (">5 sec -> fallback to GPT-3.5-turbo or mock responses").
 
-        Returns (content, usage) -- usage is returned rather than stashed on
-        self, since this client is a process-wide singleton (see
-        backend/app/core/ai_bridge.py) shared across concurrent requests on
-        different threadpool workers; a shared `self.last_usage` would let
-        one call's usage get overwritten by another's before it's read.
+        Returns (content, usage). Usage is returned directly rather than
+        stashed on `self` (as it used to be, via a `last_usage` attribute):
+        Commander/Mentor/Evaluator are singletons wrapping one shared
+        OpenAIClient each (see backend/app/core/ai_bridge.py), and
+        concurrent requests for different incidents run on separate
+        threads (FastAPI's run_in_threadpool). Shared mutable state on
+        the client meant one thread could overwrite `last_usage` before
+        another thread read it for its own log entry -- silently
+        misattributing token counts between unrelated calls in the cost
+        log. Returning usage from the call itself makes that impossible.
         """
         messages = [
             {"role": "system", "content": system_prompt},
@@ -47,7 +58,19 @@ class OpenAIClient:
         ]
         try:
             return self._request_with_retry(self.model, messages)
-        except Exception:
+        except Exception as exc:
+            # Log the primary model's real failure before retrying against
+            # the fallback -- otherwise, if the fallback fails too, the
+            # exception that reaches the caller only describes the
+            # fallback's error and the root cause is lost with no log
+            # entry anywhere (log_ai_call is only reached on success).
+            logger.warning(
+                "Primary model %r failed (%s: %s); retrying with fallback model %r.",
+                self.model,
+                type(exc).__name__,
+                exc,
+                self.fallback_model,
+            )
             return self._request_with_retry(self.fallback_model, messages)
 
     def _request_with_retry(self, model: str, messages: list) -> tuple[str, dict | None]:

@@ -31,8 +31,8 @@ export default function Timer({ startedAt }: TimerProps) {
   // Past 5 minutes on this scenario, nudge the color toward urgency.
   const isUrgent = elapsedSeconds >= 300
   const colorClass = isUrgent
-    ? 'text-accent-danger border-accent-danger shadow-[0_0_10px_rgba(255,56,96,0.4)] animate-pulse'
-    : 'text-accent-info border-accent-info shadow-[0_0_8px_rgba(0,153,255,0.3)]'
+    ? 'text-accent-danger border-accent-danger shadow-[0_0_10px_rgb(var(--glow-danger)/0.4)] animate-pulse'
+    : 'text-accent-info border-accent-info shadow-[0_0_8px_rgb(var(--glow-info)/0.3)]'
 
   return (
     <div

@@ -3,10 +3,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.errors import DuplicateKeyError
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.db.mongodb import incidents_collection, scenarios_collection
+from app.db.mongodb import ephemeral_users_collection, incidents_collection, scenarios_collection
 from app.db.postgres import User
 from app.deps import get_current_user_id, get_db
 from app.models.incident import IncidentCreate, IncidentStart
@@ -21,14 +21,21 @@ logger = logging.getLogger("iris.scenarios")
 router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
 
 
-def _user_exists(user_id: UUID, db: Session) -> bool:
+async def _user_exists(user_id: UUID, db: Session) -> bool:
     try:
-        return db.get(User, user_id) is not None
-    except OperationalError:
+        if db.get(User, user_id) is not None:
+            return True
+    except SQLAlchemyError:
         logger.warning(
             "PostgreSQL unreachable -- skipping user_id validation for %s", user_id
         )
         return True
+
+    # Not found in Postgres -- could be a genuinely invalid id, or a user
+    # who registered while Postgres was unreachable (see users.py's
+    # /register fallback, which records that case here in Mongo since it
+    # couldn't persist to Postgres at the time).
+    return await ephemeral_users_collection.find_one({"_id": str(user_id)}) is not None
 
 
 @router.post("/{scenario_id}/start", response_model=IncidentStart, status_code=201)
@@ -46,7 +53,7 @@ async def start_scenario(
     if payload.user_id != current_user_id:
         raise HTTPException(status_code=403, detail="Cannot start a scenario for another user")
 
-    if not _user_exists(payload.user_id, db):
+    if not await _user_exists(payload.user_id, db):
         raise HTTPException(status_code=404, detail="User not found")
 
     scenario = await scenarios_collection.find_one({"scenario_id": scenario_id})

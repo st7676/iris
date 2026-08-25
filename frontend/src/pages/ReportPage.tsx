@@ -49,7 +49,11 @@ export default function ReportPage() {
   }, [incident])
 
   const handleNextSimulation = () => {
-    startSimulation()
+    // Continue in the same scenario the analyst just completed, instead
+    // of silently defaulting to silent_login_v1 regardless of what was
+    // played (harmless when there was only one scenario, a real bug now
+    // that there are two).
+    startSimulation(incident?.scenarioId)
     navigate('/simulation')
   }
 
