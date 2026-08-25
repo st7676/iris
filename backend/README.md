@@ -108,6 +108,7 @@ brute-forcing. `register` also requires a password of at least `MIN_PASSWORD_LEN
 |---|---|---|---|
 | POST | `/api/users/register` | none (rate-limited: 5/min/IP) | Register a new user, returns `{access_token, user}` |
 | POST | `/api/users/login` | none (rate-limited: 10/min/IP) | Log in, returns `{access_token, user}` |
+| POST | `/api/users/logout` | bearer | Revoke the caller's current token immediately (see below) |
 | POST | `/api/users/ws-ticket` | bearer | Exchange the access token for a short-lived WebSocket ticket |
 | GET | `/api/users/{user_id}` | bearer, self only | Get a user by id |
 | GET | `/api/users/{user_id}/history` | bearer, self only | Get a user's past session scores |
@@ -121,7 +122,18 @@ curl -X POST http://localhost:8000/api/users/register \
 curl -X POST http://localhost:8000/api/users/ws-ticket \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 # => {"ws_ticket": "eyJ..."}
+
+curl -X POST http://localhost:8000/api/users/logout \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+# => 204; that specific token is now rejected on every subsequent request
 ```
+
+Logout revokes by writing the token's `jti` (a per-token id, distinct from the user id) to
+Postgres' `revoked_tokens` table -- checked on every authenticated request (see
+`app/deps.py`'s `get_current_token`). It only revokes the one token that called
+`/logout`, not every session for that user, and fails open (logs a warning, doesn't
+block the request) if Postgres is unreachable, consistent with this backend's other
+Postgres-down handling.
 
 ### Scenarios
 

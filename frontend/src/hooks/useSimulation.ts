@@ -194,6 +194,13 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   },
 
   logout: () => {
+    // Best-effort: revoke the token server-side (see backend/app/api/routes/users.py's
+    // /logout) so it can't be replayed if it leaked, but don't block clearing
+    // the local session on it -- the user should end up logged out locally
+    // either way, even if this request fails (offline, Postgres down, etc.).
+    fetch(`${API_BASE}/users/logout`, { method: 'POST', headers: getAuthHeaders() }).catch(
+      (error) => console.error('Failed to revoke token on logout:', error)
+    )
     clearStoredUserId()
     clearStoredToken()
     set({ userId: null, token: null })

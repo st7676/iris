@@ -1,7 +1,9 @@
 import hashlib
 import hmac
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 from uuid import UUID
 
 from jose import JWTError, jwt
@@ -9,6 +11,12 @@ from jose import JWTError, jwt
 from app.core.config import settings
 
 _ITERATIONS = 200_000
+
+
+class TokenClaims(NamedTuple):
+    user_id: UUID
+    jti: str
+    expires_at: datetime
 
 
 def hash_password(password: str) -> str:
@@ -27,13 +35,19 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_access_token(user_id: UUID) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": str(user_id), "exp": expires_at}
+    # jti (JWT ID): a unique id for *this* token, independent of user_id --
+    # lets logout revoke exactly this one token (app/db/postgres.py's
+    # RevokedToken, checked in app/deps.py's get_current_token) without
+    # affecting the user's other active sessions/tokens.
+    payload = {"sub": str(user_id), "exp": expires_at, "jti": str(uuid.uuid4())}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> UUID:
-    """Returns the user id embedded in the token. Raises ValueError if the
-    token is missing, malformed, expired, or signed with a different key."""
+def decode_access_token(token: str) -> TokenClaims:
+    """Returns the token's claims. Raises ValueError if the token is
+    missing, malformed, expired, or signed with a different key. Does NOT
+    check revocation -- that's app/deps.py's get_current_token, which also
+    needs a DB session this function deliberately doesn't take."""
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         if payload.get("purpose") is not None:
@@ -41,7 +55,11 @@ def decode_access_token(token: str) -> UUID:
             # must only work through decode_ws_ticket, not as a general
             # bearer token.
             raise ValueError("Not a general-purpose access token")
-        return UUID(payload["sub"])
+        return TokenClaims(
+            user_id=UUID(payload["sub"]),
+            jti=payload["jti"],
+            expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+        )
     except (JWTError, KeyError, ValueError) as exc:
         raise ValueError("Invalid or expired access token") from exc
 

@@ -203,6 +203,52 @@ def test_login_is_rate_limited_per_ip(client):
     assert eleventh.status_code == 429
 
 
+def test_logout_revokes_the_token(client):
+    """
+    Regression test for real token revocation (app/db/postgres.py's
+    RevokedToken, checked in app/deps.py's get_current_token): before this,
+    logout only cleared the frontend's localStorage -- the token itself
+    stayed valid server-side until it naturally expired (up to a day).
+    """
+    user_id, headers, _ = _register_user(client)
+
+    still_valid = client.get(f"/api/users/{user_id}", headers=headers)
+    assert still_valid.status_code == 200
+
+    logout_response = client.post("/api/users/logout", headers=headers)
+    assert logout_response.status_code == 204
+
+    after_logout = client.get(f"/api/users/{user_id}", headers=headers)
+    assert after_logout.status_code == 401
+
+
+def test_logout_only_revokes_the_one_token_not_the_whole_user(client):
+    """A second login for the same user should be unaffected by logging
+    out of the first session -- logout revokes one token (by jti), not
+    every token ever issued to that user_id."""
+    suffix = uuid.uuid4().hex[:8]
+    username = f"multi_session_user_{suffix}"
+    register_response = client.post(
+        "/api/users/register",
+        json={"username": username, "email": f"{username}@example.com", "password": "StrongPassw0rd!"},
+    )
+    assert register_response.status_code == 201
+    user_id = register_response.json()["user"]["id"]
+    headers_a = {"Authorization": f"Bearer {register_response.json()['access_token']}"}
+
+    login_response = client.post(
+        "/api/users/login", json={"username": username, "password": "StrongPassw0rd!"}
+    )
+    assert login_response.status_code == 200
+    headers_b = {"Authorization": f"Bearer {login_response.json()['access_token']}"}
+
+    logout_response = client.post("/api/users/logout", headers=headers_a)
+    assert logout_response.status_code == 204
+
+    assert client.get(f"/api/users/{user_id}", headers=headers_a).status_code == 401
+    assert client.get(f"/api/users/{user_id}", headers=headers_b).status_code == 200
+
+
 def test_start_scenario(client):
     user_id, headers, _ = _register_user(client)
     response = client.post(

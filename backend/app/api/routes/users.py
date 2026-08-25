@@ -8,10 +8,16 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.rate_limit import limiter
-from app.core.security import create_access_token, create_ws_ticket, hash_password, verify_password
+from app.core.security import (
+    TokenClaims,
+    create_access_token,
+    create_ws_ticket,
+    hash_password,
+    verify_password,
+)
 from app.db.mongodb import ephemeral_users_collection
-from app.db.postgres import SessionScore, User
-from app.deps import get_current_user_id, get_db
+from app.db.postgres import RevokedToken, SessionScore, User
+from app.deps import get_current_token, get_current_user_id, get_db
 from app.models.user import TokenResponse, UserCreate, UserLogin, UserResponse
 
 logger = logging.getLogger("iris.users")
@@ -106,6 +112,31 @@ def login_user(request: Request, payload: UserLogin, db: Session = Depends(get_d
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return _issue_token(user)
+
+
+@router.post("/logout", status_code=204)
+def logout_user(claims: TokenClaims = Depends(get_current_token), db: Session = Depends(get_db)) -> None:
+    """
+    Revokes the caller's current access token (see app/deps.py's
+    get_current_token / RevokedToken) so it stops working immediately,
+    instead of remaining valid until its natural expiry (up to
+    JWT_EXPIRE_MINUTES later). Only this one token is revoked -- other
+    active sessions for the same user are unaffected.
+    """
+    try:
+        db.add(RevokedToken(jti=claims.jti, user_id=claims.user_id, expires_at=claims.expires_at))
+        db.commit()
+    except IntegrityError:
+        # Already revoked (e.g. a duplicate logout call) -- that's already
+        # the desired end state, not an error.
+        db.rollback()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.warning(
+            "PostgreSQL unreachable -- could not persist logout revocation for jti=%s; "
+            "the token will keep working until it naturally expires.",
+            claims.jti,
+        )
 
 
 @router.post("/ws-ticket")
