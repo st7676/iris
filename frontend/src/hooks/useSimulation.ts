@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { API_BASE } from '../lib/constants'
-import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
+import { DEFAULT_SCENARIO_ID, SCENARIOS, type EvidenceDetails } from '../lib/scenarios'
 
 const STORAGE_KEY = 'iris_user_id'
 
@@ -114,6 +114,7 @@ interface Evidence {
   description: string
   revealedAtStep: number
   timestamp: string
+  details: EvidenceDetails
 }
 
 interface ActionLogEntry {

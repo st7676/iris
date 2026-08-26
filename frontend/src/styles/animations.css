@@ -35,3 +35,25 @@
 .status-active {
   animation: pulse 1.5s infinite;
 }
+
+/*
+ * Scene hotspots breathe by fading, not by pulsing a box-shadow: a
+ * shadow is drawn from the element's border-box, so on a soft radial
+ * glow it reappears as exactly the hard-edged rectangle the glow exists
+ * to avoid. Opacity has no geometry of its own, so the light keeps the
+ * gradient's shape.
+ */
+@keyframes glowBreathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.glow-breathe {
+  animation: glowBreathe 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-breathe {
+    animation: none;
+    opacity: 0.6;
+  }
+}
