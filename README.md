@@ -185,6 +185,7 @@ OPENAI_API_KEY=sk-...
 
 - [`backend/README.md`](backend/README.md) — API endpoints, DBs, performance
 - [`frontend/README.md`](frontend/README.md) — React structure, Tailwind theme
+- [`ai_services/README.md`](ai_services/README.md) — AI agents, OpenAI setup
 - `docker-compose.yml` — Service orchestration
 - `backend/app/core/config.py` — Configuration
 - `backend/app/simulation/branching_logic.py` — Incident severity branching
@@ -196,7 +197,7 @@ IRIS is an educational platform for SOC training and incident simulation researc
 
 ## 🤝 תרומה
 
-Feature branch: `feature/insider-threat-playable`
+Main branch for development and contributions.
 
 ---
 

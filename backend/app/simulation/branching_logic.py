@@ -1,10 +1,3 @@
-# PEP604 `X | None` unions below need this on Python 3.9 (the README's
-# stated minimum for running the backend outside Docker) -- without it,
-# `scenario_id: str | None` raises `TypeError` at import time on 3.9;
-# `from __future__ import annotations` makes annotations lazy strings so
-# the syntax is accepted regardless of runtime Python version.
-from __future__ import annotations
-
 from datetime import datetime, timezone
 
 from app.models.schemas import Severity
@@ -13,21 +6,14 @@ QUICK_CHECK_THRESHOLD_SECONDS = 60
 
 _SEVERITY_ORDER = [Severity.low, Severity.medium, Severity.high, Severity.critical]
 
-# The evidence type that, when checked quickly, lowers severity for each
-# scenario. Ideally this is each scenario's ideal_reasoning_chain[0] (see
-# app/db/init_db.py) -- insider_threat_v1's "hr_status" entry follows that
-# rule. silent_login_v1's "auth_logs" does NOT: its actual chain starts
-# with "check_email_logs". That mismatch predates this dict (the original
-# hardcoded check was always `evidence_type == "auth_logs"`) and is kept
-# as-is here rather than silently changed, since flipping it would change
-# scoring behavior for an already-shipped scenario. Keep this in sync by
-# hand when adding a scenario; don't assume it always equals step 1 of the
-# ideal_reasoning_chain.
-_QUICK_CHECK_EVIDENCE_BY_SCENARIO = {
+# The evidence type that, if checked first and quickly, indicates the player
+# is following the scenario's ideal reasoning chain. Keyed by scenario_id so
+# the branching logic stays generic across scenarios rather than hardcoding
+# a single evidence type.
+_QUICK_CHECK_EVIDENCE_TYPE = {
     "silent_login_v1": "auth_logs",
-    "insider_threat_v1": "hr_status",
+    "insider_threat_v1": "file_access_logs",
 }
-_DEFAULT_QUICK_CHECK_EVIDENCE = "auth_logs"
 
 
 def _to_utc_aware(dt: datetime) -> datetime:
@@ -50,17 +36,15 @@ def apply_investigation_branch(
     current_severity: str,
     incident_created_at: datetime,
     checked_at: datetime,
-    scenario_id: str | None = None,
+    scenario_id: str,
 ) -> str:
     elapsed = (
         _to_utc_aware(checked_at) - _to_utc_aware(incident_created_at)
     ).total_seconds()
-    quick_check_evidence = _QUICK_CHECK_EVIDENCE_BY_SCENARIO.get(
-        scenario_id, _DEFAULT_QUICK_CHECK_EVIDENCE
+    correct_evidence_type = _QUICK_CHECK_EVIDENCE_TYPE.get(scenario_id, "auth_logs")
+    checked_correct_evidence_quickly = (
+        evidence_type == correct_evidence_type and elapsed <= QUICK_CHECK_THRESHOLD_SECONDS
     )
-    checked_right_evidence_quickly = (
-        evidence_type == quick_check_evidence and elapsed <= QUICK_CHECK_THRESHOLD_SECONDS
-    )
-    if checked_right_evidence_quickly:
+    if checked_correct_evidence_quickly:
         return _shift_severity(current_severity, -1)
     return _shift_severity(current_severity, +1)
