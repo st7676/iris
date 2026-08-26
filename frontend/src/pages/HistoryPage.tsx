@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Spinner from '../components/common/Spinner'
+import ScreenBezel from '../components/common/ScreenBezel'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
 
@@ -82,26 +83,28 @@ export default function HistoryPage() {
           <p className="text-sm text-text-secondary">אין היסטוריה של סימולציות עדיין</p>
         </div>
       ) : (
-        <div className="border border-border-default rounded divide-y divide-border-default">
-          {history.map((session) => (
-            <div
-              key={session.id}
-              className="flex items-center justify-between p-4 hover:bg-bg-tertiary transition-colors cursor-pointer"
-              onClick={() => navigate('/report')}
-            >
-              <div>
-                <p className="text-sm font-bold">{session.scenario}</p>
-                <p className="text-xs text-text-secondary">{session.id} | {session.date}</p>
+        <ScreenBezel glow="info">
+          <div className="divide-y divide-border-default">
+            {history.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between p-4 hover:bg-bg-tertiary transition-colors cursor-pointer"
+                onClick={() => navigate('/report')}
+              >
+                <div>
+                  <p className="text-sm font-bold">{session.scenario}</p>
+                  <p className="text-xs text-text-secondary">{session.id} | {session.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-accent-success">{session.score}%</p>
+                  <p className={`text-xs uppercase ${severityColor[session.severity]}`}>
+                    {session.severity}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-accent-success">{session.score}%</p>
-                <p className={`text-xs uppercase ${severityColor[session.severity]}`}>
-                  {session.severity}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScreenBezel>
       )}
     </div>
   )

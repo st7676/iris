@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
+import ScreenBezel from '../components/common/ScreenBezel'
 import EvidenceCard from '../components/EvidenceCard'
 import ActionButton from '../components/ActionButton'
 import DeskScene, { type HotspotAction } from '../components/DeskScene'
@@ -188,13 +189,14 @@ export default function SimulationPage() {
 
   return (
     <div className="page fixed inset-0 overflow-hidden bg-bg-primary text-text-primary">
-      {/* Full-bleed desk scene: locked to the photo's own 1535:1024 frame,
-          scaled up to cover the viewport on whichever axis needs it (the
-          same result as object-fit: cover), but exposed as a real
-          positioned box -- so every hotspot/overlay below, tuned in the
-          photo's own percentages, stays aligned with the actual objects
-          in the image at any window shape, and everything the analyst
-          needs renders inside the photo instead of around it. */}
+      {/* Full-bleed desk scene: locked to the illustration's own
+          1535:1024 frame, scaled up to cover the viewport on whichever
+          axis needs it (the same result as object-fit: cover), but
+          exposed as a real positioned box -- so every hotspot/overlay
+          below, tuned in the scene's own percentages, stays aligned
+          with the actual illustrated objects at any window shape, and
+          everything the analyst needs renders inside the scene instead
+          of around it. */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ aspectRatio: '1535 / 1024', minWidth: '100vw', minHeight: '100vh' }}
@@ -207,9 +209,9 @@ export default function SimulationPage() {
         <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
       </div>
 
-      {/* Incident alert -- anchored to the viewport (not the photo frame):
+      {/* Incident alert -- anchored to the viewport (not the scene frame):
           the frame's "cover" scaling crops its top/bottom on wide screens,
-          so anything pinned near its edge in photo-percentages can land
+          so anything pinned near its edge in scene-percentages can land
           off-screen. This still reads as part of the scene since the
           scene now fills the whole viewport behind it. */}
       <div
@@ -226,7 +228,7 @@ export default function SimulationPage() {
       </div>
 
       {/* Case file drawer -- Timeline/Evidence/Logs live here instead of
-          beside the photo, tucked behind an edge tab so the default view
+          beside the scene, tucked behind an edge tab so the default view
           is the scene itself. */}
       <button
         onClick={() => setCaseFileOpen((v) => !v)}
@@ -252,7 +254,7 @@ export default function SimulationPage() {
           </h2>
           <div className="space-y-4 pt-1">
             {evidence.length === 0 && (
-              <p className="rounded bg-black/30 p-2 text-xs text-[#f0e6d0]">No evidence revealed yet. Investigate to find clues.</p>
+              <p className="rounded bg-black/30 p-2 text-xs text-paper">No evidence revealed yet. Investigate to find clues.</p>
             )}
             {evidence.map((item) => (
               <EvidenceCard
@@ -267,9 +269,11 @@ export default function SimulationPage() {
           </div>
         </div>
 
-        <div className="rounded border border-border-default p-4">
+        <div>
           <h2 className="mb-2 text-sm uppercase text-text-secondary">Logs</h2>
-          <LogViewer logs={mockLogs} />
+          <ScreenBezel glow="success">
+            <LogViewer logs={mockLogs} />
+          </ScreenBezel>
         </div>
       </div>
 

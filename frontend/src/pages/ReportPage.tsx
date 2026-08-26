@@ -68,13 +68,13 @@ export default function ReportPage() {
   if (error) {
     return (
       <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-4xl mx-auto space-y-6">
-        <div className="border border-accent-error rounded p-4 bg-accent-error/10">
-          <h2 className="text-sm font-semibold text-accent-error mb-2">Failed to Generate Report</h2>
+        <div className="border border-accent-danger rounded p-4 bg-accent-danger/10">
+          <h2 className="text-sm font-semibold text-accent-danger mb-2">Failed to Generate Report</h2>
           <p className="text-sm text-text-primary mb-4">{error}</p>
           <button
             onClick={fetchReport}
             disabled={loading}
-            className="border border-accent-error text-accent-error px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-error/10 transition-all disabled:opacity-50"
+            className="border border-accent-danger text-accent-danger px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-danger/10 transition-all disabled:opacity-50"
           >
             {loading ? 'Retrying...' : 'Retry'}
           </button>

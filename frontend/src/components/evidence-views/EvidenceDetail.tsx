@@ -1,6 +1,5 @@
 import EmailView from './EmailView'
 import LogView from './LogView'
-import PhotoLogView from './PhotoLogView'
 import RecordView from './RecordView'
 import SystemActionView from './SystemActionView'
 import type { EvidenceDetails } from '../../lib/scenarios'
@@ -24,10 +23,7 @@ export default function EvidenceDetail({ item, onClose }: EvidenceDetailProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div className="max-h-[85vh] w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
         {item.details.kind === 'email' && <EmailView details={item.details} onClose={onClose} />}
-        {item.details.kind === 'log' && item.details.photo && (
-          <PhotoLogView photoSrc={item.details.photo} details={item.details} onClose={onClose} />
-        )}
-        {item.details.kind === 'log' && !item.details.photo && <LogView details={item.details} onClose={onClose} />}
+        {item.details.kind === 'log' && <LogView details={item.details} onClose={onClose} />}
         {item.details.kind === 'record' && <RecordView details={item.details} onClose={onClose} />}
         {item.details.kind === 'system' && <SystemActionView title={item.title} details={item.details} onClose={onClose} />}
       </div>
