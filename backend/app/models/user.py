@@ -1,7 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
+MIN_PASSWORD_LENGTH = 8
 
 
 class UserCreate(BaseModel):
@@ -18,6 +20,13 @@ class UserCreate(BaseModel):
             }
         }
     )
+
+    @field_validator("password")
+    @classmethod
+    def _password_min_length(cls, value: str) -> str:
+        if len(value) < MIN_PASSWORD_LENGTH:
+            raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long")
+        return value
 
 
 class UserLogin(BaseModel):
@@ -50,4 +59,20 @@ class UserResponse(BaseModel):
                 "created_at": "2026-01-15T10:30:00Z",
             }
         },
+    )
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer",
+                "user": UserResponse.model_config["json_schema_extra"]["example"],
+            }
+        }
     )

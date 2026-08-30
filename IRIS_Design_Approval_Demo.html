@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>IRIS — Design Direction (Approval Demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0d1117; color: #dbe2ea; font-family: 'Inter', sans-serif; }
+  h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
+  .page { min-height: 100vh; padding: 50px; border-bottom: 4px solid #21262d; }
+  .banner { text-align:center; padding: 14px; background:#161b22; border-bottom:1px solid #30363d; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:#2dd4bf; }
+
+  /* ===== HOME PAGE ===== */
+  .home { display:flex; flex-direction:column; align-items:center; text-align:center; padding-top: 50px; }
+  .home .logo { font-size: 68px; color:#fff; margin: 0; letter-spacing: 3px; text-shadow: 0 0 30px rgba(45,212,191,0.4); }
+  .home .tag { font-size:13px; letter-spacing:3px; text-transform:uppercase; color:#ff2d55; margin: 16px 0 8px; font-weight: 700; }
+  .home .pitch { max-width: 580px; font-size: 18px; line-height:1.6; color:#eef2f7; margin-bottom: 30px; }
+  .stats { display:flex; gap:12px; margin-bottom: 40px; }
+  .stat { border:1px solid #30363d; border-radius:8px; padding:8px 16px; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#8b949e; font-weight:700; }
+  .cases { display:grid; grid-template-columns: repeat(2,1fr); gap:20px; width:100%; max-width:720px; }
+  .case { background:#161b22; border:1px solid #30363d; border-radius:12px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); padding:24px; text-align:left; }
+  .sev { display:inline-block; font-size:11px; padding:4px 10px; border-radius:6px; font-weight:800; letter-spacing:1px; margin-bottom:12px; }
+  .sev-med { background: rgba(255,149,0,0.15); color:#ff9500; }
+  .sev-high { background: rgba(255,45,85,0.15); color:#ff2d55; }
+  .case h3 { margin:0 0 8px; font-size:19px; color:#fff; }
+  .case p { margin:0; font-size:13px; opacity:0.8; line-height:1.5; }
+  .btn { font-family:'Inter',sans-serif; font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:1px; padding:14px 22px; border-radius:8px; cursor:pointer; border:none; background:#2dd4bf; color:#0d1117; margin-top:32px; }
+
+  /* ===== SIMULATION ROOM ===== */
+  .room-title { text-align:center; margin-bottom: 20px; }
+  .room-title .kicker { font-size:12px; letter-spacing:2px; text-transform:uppercase; color:#2dd4bf; }
+  .room {
+    position: relative; max-width: 1100px; margin: 0 auto; height: 540px;
+    border-radius: 16px; overflow: hidden; border: 1px solid #21262d;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    background-image: linear-gradient(180deg, rgba(5,7,10,0.25), rgba(5,7,10,0.9)), url('https://images.unsplash.com/photo-1497215842964-222b430dc094?auto=format&fit=crop&w=1400&q=75');
+    background-size: cover; background-position: center 30%;
+  }
+  .hud-top { position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; padding: 16px 24px; z-index:5; background: linear-gradient(180deg, rgba(5,7,10,0.7), transparent); }
+  .hud-top .logo-sm { font-family:'Orbitron',sans-serif; color:#2dd4bf; font-weight:800; }
+  .hud-top .pill { font-size:12px; border:1px solid #2dd4bf; color:#2dd4bf; padding:6px 12px; border-radius:6px; font-weight:800; background:rgba(8,10,14,0.7); }
+  .hotspot { position:absolute; width:22px; height:22px; cursor:pointer; }
+  .hotspot::after { content:''; position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(255,255,255,0.55); transition: all .2s; }
+  .hotspot:hover::after { border-color:#2dd4bf; box-shadow: 0 0 14px rgba(45,212,191,0.7); background: rgba(45,212,191,0.15); }
+  .obj-label { position:absolute; top:28px; left:50%; transform:translateX(-50%); font-size:11px; background:rgba(8,10,14,0.92); border:1px solid #2dd4bf; color:#2dd4bf; padding:5px 12px; border-radius:6px; white-space:nowrap; opacity:0; transition:opacity .2s; pointer-events:none; font-weight:700; }
+  .hotspot:hover .obj-label { opacity: 1; }
+
+  /* Nested "desktop" panel, shown as a static example beside the room */
+  .desktop-example { max-width: 1100px; margin: 20px auto 0; background:#161b22; border:1px solid #2dd4bf55; border-radius:12px; padding: 22px 26px; }
+  .desktop-example .title-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .desktop-example h3 { margin:0; font-size:14px; color:#2dd4bf; letter-spacing:2px; }
+  .desktop-example .note { font-size:12px; color:#8b949e; }
+  .desktop-icons { display:flex; gap: 24px; }
+  .dicon { display:flex; flex-direction:column; align-items:center; gap:8px; width:84px; }
+  .dicon .ico { width:56px; height:56px; border-radius:10px; background:#0d1117; border:1px solid #30363d; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .dicon.decoy .ico { opacity: 0.55; }
+  .dicon .name { font-size:11px; text-align:center; }
+
+  .found-bar { max-width: 1100px; margin: 20px auto 0; background:#161b22; border:1px solid #30363d; border-radius: 12px; padding: 18px 26px; display:flex; justify-content:space-between; align-items:center; }
+  .found-label { font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:1px; }
+  .found-label b { color:#2dd4bf; }
+</style>
+</head>
+<body>
+
+  <div class="banner">IRIS — Confirmed Design Direction (v2) — for team review</div>
+
+  <div class="page home">
+    <div class="section note" style="margin-bottom:20px;color:#8b949e;font-size:12px;letter-spacing:2px;text-transform:uppercase;">Home Page</div>
+    <p class="tag">⚠ Incoming Transmission</p>
+    <h1 class="logo">IRIS</h1>
+    <p class="pitch">A live breach is unfolding. You're the analyst on shift tonight — every decision changes what happens next.</p>
+    <div class="stats">
+      <div class="stat">⏱ ~15 MIN</div>
+      <div class="stat">🤖 AI-POWERED</div>
+      <div class="stat">🎯 SOC TRAINING</div>
+    </div>
+    <div class="cases">
+      <div class="case">
+        <span class="sev sev-med">MEDIUM</span>
+        <h3>Operation Silent Login</h3>
+        <p>Phishing led to account takeover. Trace it before more damage is done.</p>
+      </div>
+      <div class="case">
+        <span class="sev sev-high">HIGH</span>
+        <h3>Operation Insider Threat</h3>
+        <p>A departing employee accessed sensitive files after hours.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="room-title">
+      <div class="kicker">Simulation Page — Scene-Based Investigation</div>
+      <h2>Explore the Desk. Discover the Clues.</h2>
+    </div>
+
+    <div class="room">
+      <div class="hud-top">
+        <div class="logo-sm">IRIS</div>
+        <div class="pill">⏱ 02:14</div>
+      </div>
+      <div class="hotspot" style="top:42%; left:30%;"><div class="obj-label">Check Monitor / Email</div></div>
+      <div class="hotspot" style="top:58%; left:52%;"><div class="obj-label">Check Documents on Desk</div></div>
+      <div class="hotspot" style="top:35%; left:70%;"><div class="obj-label">Check Second Screen</div></div>
+    </div>
+
+    <div class="found-bar">
+      <div class="found-label">Evidence found: <b>0 / 3</b> — hotspots are invisible by default, only outline on hover (no obvious hints)</div>
+    </div>
+
+    <div class="desktop-example">
+      <div class="title-row">
+        <h3>💻 EXAMPLE — WHAT OPENS WHEN YOU CLICK THE MONITOR</h3>
+        <span class="note">Mixed real + decoy folders — the player has to figure out what's relevant</span>
+      </div>
+      <div class="desktop-icons">
+        <div class="dicon"><div class="ico">📧</div><div class="name">Mail Client</div></div>
+        <div class="dicon"><div class="ico">📁</div><div class="name">Auth Logs</div></div>
+        <div class="dicon decoy"><div class="ico">🎵</div><div class="name">Music</div></div>
+        <div class="dicon decoy"><div class="ico">🖼️</div><div class="name">Vacation Photos</div></div>
+        <div class="dicon"><div class="ico">🌐</div><div class="name">Browser History</div></div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

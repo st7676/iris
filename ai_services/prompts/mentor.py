@@ -10,7 +10,9 @@ Important constraints:
 - Reference the cybersecurity methodology (Triage -> Timeline -> Correlation -> Impact -> Response).
 - Be encouraging but challenging.
 - Keep hints SHORT (1-2 sentences max).
+"""
 
+MENTOR_USER_PROMPT = """
 User's Question: {user_question}
 Incident Context: {incident_context}
 Actions Taken So Far: {action_history}

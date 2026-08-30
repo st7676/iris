@@ -80,35 +80,72 @@ Technical Spec.
 
 ## API endpoints
 
+### Authentication
+
+`register` and `login` are the only unauthenticated endpoints (both rate-limited, see
+below). Both return a JWT `access_token` alongside the user; every other endpoint below
+requires it as `Authorization: Bearer <access_token>`. Tokens are verified by signature
+only (see `app/core/security.py`), expire after `JWT_EXPIRE_MINUTES` (default: 1 day),
+and are scoped to a single user: routes that take a `user_id`/`incident_id` reject the
+request with `403` if the token's user doesn't match.
+
+The WebSocket is the one exception: browsers can't set custom headers on a WebSocket
+handshake, so it takes a token as a `?token=` query param instead -- but not the normal
+access token. `POST /api/users/ws-ticket` exchanges a valid access token for a
+short-lived (`WS_TICKET_EXPIRE_SECONDS` in `app/core/security.py`, 30s), single-purpose
+ticket, so whatever ends up in server access logs or browser history from the WS URL is
+useless within half a minute and can't be replayed as a general API credential.
+
+`register` and `login` are rate-limited per IP (`app/core/rate_limit.py`, in-memory --
+5/minute and 10/minute respectively) against registration spam and password
+brute-forcing. `register` also requires a password of at least `MIN_PASSWORD_LENGTH`
+(8) characters (`app/models/user.py`).
+
 ### Users
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/users/register` | Register a new user |
-| POST | `/api/users/login` | Authenticate against an existing user |
-| GET | `/api/users/{user_id}` | Get a user by id |
-| GET | `/api/users/{user_id}/history` | Get a user's past session scores |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/users/register` | none (rate-limited: 5/min/IP) | Register a new user, returns `{access_token, user}` |
+| POST | `/api/users/login` | none (rate-limited: 10/min/IP) | Log in, returns `{access_token, user}` |
+| POST | `/api/users/logout` | bearer | Revoke the caller's current token immediately (see below) |
+| POST | `/api/users/ws-ticket` | bearer | Exchange the access token for a short-lived WebSocket ticket |
+| GET | `/api/users/{user_id}` | bearer, self only | Get a user by id |
+| GET | `/api/users/{user_id}/history` | bearer, self only | Get a user's past session scores |
 
 ```bash
 curl -X POST http://localhost:8000/api/users/register \
   -H "Content-Type: application/json" \
   -d '{"username": "sara_soc", "email": "sara@example.com", "password": "StrongPassw0rd!"}'
+# => {"access_token": "eyJ...", "token_type": "bearer", "user": {"id": "...", ...}}
 
 curl -X POST http://localhost:8000/api/users/login \
   -H "Content-Type: application/json" \
   -d '{"username": "sara_soc", "password": "StrongPassw0rd!"}'
+
+curl -X POST http://localhost:8000/api/users/ws-ticket \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+# => {"ws_ticket": "eyJ..."}
+
+curl -X POST http://localhost:8000/api/users/logout \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+# => 204; that specific token is now rejected on every subsequent request
 ```
 
 `login` returns `401` for both a wrong password and an unknown username (never `404`), so a
-caller can't enumerate which usernames are registered. Both `register` and `login` are
-rate-limited to 10 requests/minute per IP (see [`app/core/rate_limit.py`](app/core/rate_limit.py))
-to blunt brute-force attempts; exceeding it returns `429`.
+caller can't enumerate which usernames are registered.
+
+Logout revokes by writing the token's `jti` (a per-token id, distinct from the user id) to
+Postgres' `revoked_tokens` table -- checked on every authenticated request (see
+`app/deps.py`'s `get_current_token`). It only revokes the one token that called
+`/logout`, not every session for that user, and fails open (logs a warning, doesn't
+block the request) if Postgres is unreachable, consistent with this backend's other
+Postgres-down handling.
 
 ### Scenarios
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/scenarios/{scenario_id}/start` | Start a new incident from a scenario |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/scenarios/{scenario_id}/start` | bearer, self only | Start a new incident from a scenario |
 
 Two scenarios are seeded on startup: `silent_login_v1` and `insider_threat_v1` (see
 [`app/db/init_db.py`](app/db/init_db.py)) — the same engine and branching logic drive both,
@@ -117,6 +154,7 @@ proving the simulation isn't hardcoded to a single flow.
 ```bash
 curl -X POST http://localhost:8000/api/scenarios/silent_login_v1/start \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"scenario_id": "silent_login_v1", "user_id": "123e4567-e89b-12d3-a456-426614174000"}'
 ```
 
@@ -135,6 +173,9 @@ Response:
 
 ### Incidents
 
+All incident routes require `Authorization: Bearer $ACCESS_TOKEN` and return `403` if
+the token's user doesn't own the incident.
+
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/incidents/{incident_id}` | Get the full incident (status, evidence, action log) |
@@ -143,24 +184,29 @@ Response:
 | POST | `/api/incidents/{incident_id}/hint` | Ask AI Mentor for a graduated hint (never the answer outright) |
 | POST | `/api/incidents/{incident_id}/complete` | End the simulation; AI Evaluator scores it and records `session_scores` |
 | GET | `/api/incidents/{incident_id}/report` | Re-fetch a completed incident's report (score, categories, ideal vs. actual chain, feedback) |
-| WS | `/ws/incidents/{incident_id}` | Live event updates for the incident (AI Commander) |
+| WS | `/ws/incidents/{incident_id}?token=$WS_TICKET` | Live event updates for the incident (AI Commander) -- takes a ws-ticket, not `$ACCESS_TOKEN` |
 
 ```bash
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/investigate \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"evidence_type": "auth_logs"}'
 
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/decide \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"decision": "escalate_to_soc_lead", "notes": "Multiple failed logins from an unrecognized location."}'
 
 curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/hint \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"user_question": "What should I check first?"}'
 
-curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete
+curl -X POST http://localhost:8000/api/incidents/SF-2026-0142/complete \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
-curl http://localhost:8000/api/incidents/SF-2026-0142/report
+curl http://localhost:8000/api/incidents/SF-2026-0142/report \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 Each scenario has one "fast path" evidence type (`auth_logs` for `silent_login_v1`,
@@ -202,12 +248,18 @@ the resulting score is also written to PostgreSQL's `session_scores`, so it show
 ## Configuration
 
 All configuration is environment-based via [`app/core/config.py`](app/core/config.py)
-(`DATABASE_URL`, `MONGODB_URL`, `MONGODB_DB_NAME`) — see `.env.example` — plus
-`ai_services/.env` for `OPENAI_API_KEY` and friends (see
-[`ai_services/.env.example`](../ai_services/.env.example)). There are no hardcoded
-credentials in application code; the `secret` Postgres password in `docker-compose.yml`
-is a local-only default for the Dockerized dev database (user `postgres`, matching
-Postgres's default when `POSTGRES_USER` isn't set), not a real credential.
+(`DATABASE_URL`, `MONGODB_URL`, `MONGODB_DB_NAME`, `CORS_ALLOWED_ORIGINS`,
+`JWT_SECRET_KEY`) — see `.env.example` — plus `ai_services/.env` for `OPENAI_API_KEY`
+and friends (see [`ai_services/.env.example`](../ai_services/.env.example)). There are
+no hardcoded credentials in application code; the `secret` Postgres password in
+`docker-compose.yml` is a local-only default for the Dockerized dev database (user
+`postgres`, matching Postgres's default when `POSTGRES_USER` isn't set), not a real
+credential.
+
+`JWT_SECRET_KEY` defaults to a fixed, publicly-known dev value so login tokens keep
+working across restarts/multiple workers in local dev without any setup — **it must be
+overridden to a long random value in every other environment**, or anyone can forge a
+valid token for any user id.
 
 If PostgreSQL is unreachable at startup or at request time, the API logs a warning and
 keeps working for the core Mongo-backed simulation flow (start/investigate/decide/hint/
