@@ -260,7 +260,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     if (!state.incident) throw new Error('No incident in progress')
 
     try {
-      await apiInvestigate(state.incident.incidentId, state.incident.scenarioId, label)
+      const updated = await apiInvestigate(state.incident.incidentId, state.incident.scenarioId, label)
 
       const alreadyInTimeline = state.timeline.some((step) => step.label === label)
       const newEvidence = SCENARIOS[state.incident.scenarioId]?.evidenceLibrary[label]
@@ -270,7 +270,14 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         step.status === 'current' ? { ...step, status: 'done' as const } : step
       )
 
+      // The backend re-evaluates severity on every investigate (branching_logic.py)
+      // and returns the current value -- previously ignored here, so the
+      // header's severity badge stayed frozen at whatever it was when the
+      // incident started, even as the case actively escalated server-side.
+      const nextSeverity: Incident['severity'] = updated.severity ?? state.incident.severity
+
       set({
+        incident: { ...state.incident, severity: nextSeverity },
         timeline: alreadyInTimeline
           ? updatedTimeline
           : [...updatedTimeline, { label, status: 'current' as const }],
@@ -289,7 +296,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     if (!state.incident) throw new Error('No incident in progress')
 
     try {
-      await apiDecide(state.incident.incidentId, state.incident.scenarioId, label)
+      const updated = await apiDecide(state.incident.incidentId, state.incident.scenarioId, label)
 
       const alreadyInTimeline = state.timeline.some((step) => step.label === label)
       const newEvidence = SCENARIOS[state.incident.scenarioId]?.evidenceLibrary[label]
@@ -299,7 +306,10 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         step.status === 'current' ? { ...step, status: 'done' as const } : step
       )
 
+      const nextSeverity: Incident['severity'] = updated.severity ?? state.incident.severity
+
       set({
+        incident: { ...state.incident, severity: nextSeverity },
         timeline: alreadyInTimeline
           ? updatedTimeline
           : [...updatedTimeline, { label, status: 'current' as const }],

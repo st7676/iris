@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
@@ -86,6 +86,28 @@ export default function SimulationPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incident?.incidentId, actionLog.length])
+
+  // The backend re-evaluates severity on every investigate (see
+  // useSimulation.ts's investigateEvidence), so the badge in SOCHeader can
+  // now jump low -> medium -> high mid-session. That's the moment the
+  // incident is meant to feel like it just got worse -- give it a beat
+  // (alert tone + a brief shake on the badge) instead of letting the label
+  // silently change color, which is easy to miss during an active investigation.
+  const severityRef = useRef(incident?.severity)
+  const [severityFlashKey, setSeverityFlashKey] = useState(0)
+  useEffect(() => {
+    const rank = { low: 0, medium: 1, high: 2 } as const
+    const prev = severityRef.current
+    const next = incident?.severity
+    if (prev && next && rank[next] > rank[prev]) {
+      playAlert()
+      setSeverityFlashKey((k) => k + 1)
+      setToastVariant('danger')
+      setToastMessage(`Severity escalated to ${next.toUpperCase()}`)
+      setTimeout(() => setToastMessage(null), 3500)
+    }
+    severityRef.current = next
+  }, [incident?.severity])
 
   const handleInvestigate = async (label: string) => {
     try {
@@ -226,7 +248,12 @@ export default function SimulationPage() {
 
       {/* Top HUD strip -- translucent, over the scene, not pushing it down. */}
       <div className="absolute inset-x-0 top-0 z-20 border-b border-border-default/60 bg-bg-primary/70 backdrop-blur-sm">
-        <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
+        <SOCHeader
+          incidentId={incident.incidentId}
+          severity={incident.severity}
+          startedAt={incident.startedAt}
+          severityFlashKey={severityFlashKey}
+        />
       </div>
 
       {/* Incident alert -- anchored to the viewport (not the scene frame):
