@@ -13,6 +13,14 @@ from app.simulation.evidence import get_mock_evidence
 # on the resulting DuplicateKeyError before giving up.
 INCIDENT_ID_COLLISION_RETRIES = 5
 
+# Hints used to be free and unlimited -- asking the Mentor for help had no
+# in-game cost, so there was no reason not to spam it on every step. Capping
+# how many an incident gets and docking points per hint used (applied in
+# complete_incident) turns "ask for help" into a real tradeoff against the
+# final score, instead of a no-cost button.
+MAX_HINTS_PER_INCIDENT = 3
+HINT_SCORE_PENALTY = 5
+
 
 def generate_incident_id() -> str:
     year = datetime.now(timezone.utc).year
@@ -32,6 +40,7 @@ def build_incident_document(scenario: dict, user_id: UUID) -> dict:
         "alert_message": scenario.get("initial_alert_message", ""),
         "evidence_revealed": [],
         "action_log": [],
+        "hints_used": 0,
         "created_at": now,
         "updated_at": now,
     }

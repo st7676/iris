@@ -592,6 +592,29 @@ def test_investigate_broadcasts_commander_update_without_client_prompting(client
         assert "timestamp" in data
 
 
+def test_decide_broadcasts_commander_update_without_client_prompting(client):
+    """
+    Mirrors test_investigate_broadcasts_commander_update_without_client_prompting:
+    /decide is the other action-taking endpoint, and previously only
+    /investigate triggered a Commander update -- deciding (the most
+    consequential action in the flow) left the live feed silent.
+    """
+    incident_id, headers, _ = _start_incident(client)
+    ticket = _ws_ticket(client, headers)
+    with client.websocket_connect(f"/ws/incidents/{incident_id}?token={ticket}") as ws:
+        response = client.post(
+            f"/api/incidents/{incident_id}/decide",
+            json={"decision": "escalate_to_soc_lead"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+        data = ws.receive_json()
+        assert data["type"] == "event_update"
+        assert data["message"] == "Mock Commander: new evidence detected."
+        assert "timestamp" in data
+
+
 def test_websocket_rejects_unknown_incident(client):
     _, headers, _ = _register_user(client)
     ticket = _ws_ticket(client, headers)
@@ -635,6 +658,40 @@ def test_hint_returns_503_when_ai_mentor_fails(client, monkeypatch):
     assert response.status_code == 503
 
 
+def test_hint_response_reports_remaining_count(client):
+    from app.simulation.engine import MAX_HINTS_PER_INCIDENT
+
+    incident_id, headers, _ = _start_incident(client)
+    response = client.post(
+        f"/api/incidents/{incident_id}/hint",
+        json={"user_question": "What should I check next?"},
+        headers=headers,
+    )
+    body = response.json()
+    assert body["hints_used"] == 1
+    assert body["hints_remaining"] == MAX_HINTS_PER_INCIDENT - 1
+
+
+def test_hint_is_refused_once_the_limit_is_reached(client):
+    from app.simulation.engine import MAX_HINTS_PER_INCIDENT
+
+    incident_id, headers, _ = _start_incident(client)
+    for _ in range(MAX_HINTS_PER_INCIDENT):
+        response = client.post(
+            f"/api/incidents/{incident_id}/hint",
+            json={"user_question": "What should I check next?"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        f"/api/incidents/{incident_id}/hint",
+        json={"user_question": "one more please"},
+        headers=headers,
+    )
+    assert response.status_code == 429
+
+
 def test_complete_returns_score_and_marks_incident_completed(client):
     incident_id, headers, _ = _start_incident(client)
     client.post(
@@ -667,6 +724,29 @@ def test_complete_returns_score_and_marks_incident_completed(client):
     report = client.get(f"/api/incidents/{incident_id}/report", headers=headers)
     assert report.status_code == 200
     assert report.json() == body
+
+
+def test_complete_deducts_score_for_hints_used(client):
+    from app.simulation.engine import HINT_SCORE_PENALTY
+
+    incident_id, headers, _ = _start_incident(client)
+    client.post(
+        f"/api/incidents/{incident_id}/hint",
+        json={"user_question": "What should I check next?"},
+        headers=headers,
+    )
+    client.post(
+        f"/api/incidents/{incident_id}/hint",
+        json={"user_question": "Another hint please"},
+        headers=headers,
+    )
+
+    response = client.post(f"/api/incidents/{incident_id}/complete", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["hints_used"] == 2
+    assert body["hint_penalty"] == 2 * HINT_SCORE_PENALTY
+    assert body["score"] == 75 - 2 * HINT_SCORE_PENALTY  # mean of mocked 80/70/75, minus penalty
 
 
 def _backdate_incident(mongo_db, incident_id: str, seconds_ago: int) -> None:
