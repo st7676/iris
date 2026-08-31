@@ -1,4 +1,5 @@
 import ScreenBezel from './common/ScreenBezel'
+import { IconCheck, IconX } from './common/icons'
 
 interface ComparisonStep {
   step: number
@@ -17,10 +18,16 @@ const statusColor = {
   missing: 'text-accent-danger',
 }
 
-const statusLabel = {
-  correct: '✓ Correct',
-  wrong: '✗ Wrong',
-  missing: '✗ Missing',
+const statusIcon = {
+  correct: IconCheck,
+  wrong: IconX,
+  missing: IconX,
+}
+
+const statusText = {
+  correct: 'Correct',
+  wrong: 'Wrong',
+  missing: 'Missing',
 }
 
 export default function PostMortemComparison({ steps }: PostMortemComparisonProps) {
@@ -38,14 +45,22 @@ export default function PostMortemComparison({ steps }: PostMortemComparisonProp
             </tr>
           </thead>
           <tbody>
-            {steps.map((row) => (
-              <tr key={row.step} className="border-b border-border-default last:border-b-0">
-                <td className="py-2 pl-4">{row.step}</td>
-                <td className="py-2">{row.ideal}</td>
-                <td className="py-2">{row.yours}</td>
-                <td className={`py-2 pr-4 ${statusColor[row.status]}`}>{statusLabel[row.status]}</td>
-              </tr>
-            ))}
+            {steps.map((row) => {
+              const StatusIcon = statusIcon[row.status]
+              return (
+                <tr key={row.step} className="border-b border-border-default last:border-b-0">
+                  <td className="py-2 pl-4">{row.step}</td>
+                  <td className="py-2">{row.ideal}</td>
+                  <td className="py-2">{row.yours}</td>
+                  <td className={`py-2 pr-4 ${statusColor[row.status]}`}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <StatusIcon className="shrink-0" />
+                      {statusText[row.status]}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </ScreenBezel>

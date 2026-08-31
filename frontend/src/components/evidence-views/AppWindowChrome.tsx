@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import ScreenBezel from '../common/ScreenBezel'
+import { IconX } from '../common/icons'
 
 interface AppWindowChromeProps {
   title: string
@@ -25,7 +26,7 @@ export default function AppWindowChrome({ title, onClose, children }: AppWindowC
           className="text-text-secondary hover:text-text-primary transition-colors"
           aria-label="Close"
         >
-          ✕
+          <IconX />
         </button>
       </div>
       <div className="max-h-[70vh] overflow-y-auto bg-bg-secondary">{children}</div>

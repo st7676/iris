@@ -10,10 +10,12 @@ import DeskScene, { type HotspotAction } from '../components/DeskScene'
 import EvidenceDetail from '../components/evidence-views/EvidenceDetail'
 import Toast from '../components/common/Toast'
 import Spinner from '../components/common/Spinner'
+import { IconBulb } from '../components/common/icons'
 import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
 import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
+import { playClick, playSuccess, playError, playAlert, playChime } from '../lib/sound'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -34,6 +36,7 @@ export default function SimulationPage() {
   const { incident, timeline, evidence, actionLog, startSimulation, investigateEvidence, decide, completeSimulation } =
     useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [toastVariant, setToastVariant] = useState<'success' | 'danger' | 'warning' | 'info'>('success')
   const [loading, setLoading] = useState(false)
   const [openEvidenceId, setOpenEvidenceId] = useState<string | null>(null)
   const [caseFileOpen, setCaseFileOpen] = useState(false)
@@ -50,6 +53,7 @@ export default function SimulationPage() {
     // /simulation directly via a refresh).
     if (!incident) {
       startSimulation(requestedScenarioId).catch((err) => {
+        setToastVariant('danger')
         setToastMessage(`Failed to start simulation: ${err instanceof Error ? err.message : 'Unknown error'}`)
       })
     }
@@ -70,7 +74,9 @@ export default function SimulationPage() {
     let dismissTimer: ReturnType<typeof setTimeout> | undefined
 
     const nudgeTimer = setTimeout(() => {
-      setToastMessage('⚠ Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.')
+      playAlert()
+      setToastVariant('warning')
+      setToastMessage('Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.')
       dismissTimer = setTimeout(() => setToastMessage(null), 5000)
     }, IDLE_NUDGE_MS)
 
@@ -85,10 +91,14 @@ export default function SimulationPage() {
     try {
       setLoading(true)
       await investigateEvidence(label)
+      playSuccess()
+      setToastVariant('success')
       setToastMessage(`${label}: investigation complete`)
       setTimeout(() => setToastMessage(null), 3000)
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Investigation failed'
+      playError()
+      setToastVariant('danger')
       setToastMessage(`Failed: ${errorMsg}`)
       setTimeout(() => setToastMessage(null), 4000)
     } finally {
@@ -100,10 +110,14 @@ export default function SimulationPage() {
     try {
       setLoading(true)
       await decide(label)
+      playSuccess()
+      setToastVariant('success')
       setToastMessage(`${label}: action taken`)
       setTimeout(() => setToastMessage(null), 3000)
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Decision failed'
+      playError()
+      setToastVariant('danger')
       setToastMessage(`Failed: ${errorMsg}`)
       setTimeout(() => setToastMessage(null), 4000)
     } finally {
@@ -115,6 +129,7 @@ export default function SimulationPage() {
   // (investigate/decide are one-shot per label) -- it just re-opens that
   // evidence, enlarged and centered, like picking the object back up.
   const handleHotspotSelect = async (action: HotspotAction) => {
+    playClick()
     const meta = getScenario(incident?.scenarioId).evidenceLibrary[action.label]
     const alreadyRevealed = meta ? evidence.some((e) => e.id === meta.id) : false
 
@@ -132,6 +147,7 @@ export default function SimulationPage() {
   }
 
   const handleComplete = async () => {
+    playClick()
     completeSimulation()
     navigate('/report')
   }
@@ -146,10 +162,14 @@ export default function SimulationPage() {
       })
       if (!res.ok) throw new Error('Failed to get hint')
       const data = await res.json()
-      setToastMessage(`💡 AI Mentor: ${data.hint}`)
+      playChime()
+      setToastVariant('info')
+      setToastMessage(`AI Mentor: ${data.hint}`)
       setTimeout(() => setToastMessage(null), 5000)
     } catch (error) {
       console.error('Failed to get hint:', error)
+      playError()
+      setToastVariant('danger')
       setToastMessage('לא הצלחתי לקבל רמז - בדוק שהחיבור לשרת פועל')
       setTimeout(() => setToastMessage(null), 3000)
     }
@@ -243,9 +263,13 @@ export default function SimulationPage() {
           caseFileOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="mb-4 rounded border border-border-default p-4">
+        <div className="mb-4">
           <h2 className="mb-2 text-sm uppercase text-text-secondary">Event Timeline</h2>
-          <EventTimeline steps={timeline} />
+          <ScreenBezel glow="info">
+            <div className="p-4">
+              <EventTimeline steps={timeline} />
+            </div>
+          </ScreenBezel>
         </div>
 
         <div className="cork-board mb-4 rounded p-4">
@@ -284,7 +308,10 @@ export default function SimulationPage() {
         className="hud-frame absolute bottom-4 left-4 z-20 max-w-xs rounded border-2 border-accent-info bg-bg-primary/85 p-3 text-left backdrop-blur-sm transition-all hover:bg-accent-info/20 hover:shadow-[0_0_20px_rgb(var(--glow-info)/0.4)] disabled:cursor-not-allowed disabled:opacity-50"
         style={{ ['--hud-color' as string]: 'var(--color-accent-info)' }}
       >
-        <p className="text-xs font-bold uppercase tracking-wide text-accent-info">💡 Ask Your Mentor for a Hint</p>
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-info">
+          <IconBulb className="shrink-0" />
+          Ask Your Mentor for a Hint
+        </p>
         <p className="mt-1 text-[11px] text-text-secondary">Stuck? Get a nudge — never the answer itself.</p>
       </button>
 
@@ -292,7 +319,9 @@ export default function SimulationPage() {
         <ActionButton label="Complete Simulation" onClick={handleComplete} />
       </div>
 
-      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
+      {toastMessage && (
+        <Toast message={toastMessage} variant={toastVariant} onClose={() => setToastMessage(null)} />
+      )}
 
       {openEvidenceItem && (
         <EvidenceDetail item={openEvidenceItem} onClose={() => setOpenEvidenceId(null)} />

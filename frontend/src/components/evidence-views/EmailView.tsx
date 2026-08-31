@@ -1,4 +1,5 @@
 import AppWindowChrome from './AppWindowChrome'
+import { IconAlert } from '../common/icons'
 import type { EvidenceDetails } from '../../lib/scenarios'
 
 interface EmailViewProps {
@@ -45,7 +46,7 @@ export default function EmailView({ details, onClose }: EmailViewProps) {
         </a>
 
         <div className="flex items-start gap-2 rounded border border-paper-danger/40 bg-paper-danger/10 p-2 text-xs text-paper-danger">
-          <span>⚠</span>
+          <IconAlert className="mt-0.5 shrink-0" />
           <span>{details.flagNote}</span>
         </div>
       </div>

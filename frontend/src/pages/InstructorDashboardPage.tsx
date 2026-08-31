@@ -103,17 +103,21 @@ export default function InstructorDashboardPage() {
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="border border-border-default rounded p-6">
-            <div className="text-sm text-text-secondary uppercase mb-2">Total Sessions</div>
-            <div className="text-4xl font-bold text-accent-success">{dashboard.total_sessions}</div>
-          </div>
-
-          <div className="border border-border-default rounded p-6">
-            <div className="text-sm text-text-secondary uppercase mb-2">Average Score</div>
-            <div className="text-4xl font-bold text-accent-success">
-              {dashboard.average_score !== null ? `${dashboard.average_score.toFixed(1)}%` : '—'}
+          <ScreenBezel glow="info">
+            <div className="p-6">
+              <div className="text-sm text-text-secondary uppercase mb-2">Total Sessions</div>
+              <div className="text-4xl font-bold text-accent-success">{dashboard.total_sessions}</div>
             </div>
-          </div>
+          </ScreenBezel>
+
+          <ScreenBezel glow="info">
+            <div className="p-6">
+              <div className="text-sm text-text-secondary uppercase mb-2">Average Score</div>
+              <div className="text-4xl font-bold text-accent-success">
+                {dashboard.average_score !== null ? `${dashboard.average_score.toFixed(1)}%` : '—'}
+              </div>
+            </div>
+          </ScreenBezel>
         </div>
 
         {/* Scenario Breakdown */}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Scoreboard from '../components/Scoreboard'
 import PostMortemComparison from '../components/PostMortemComparison'
 import Spinner from '../components/common/Spinner'
+import ScreenBezel from '../components/common/ScreenBezel'
 import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
 
@@ -122,9 +123,11 @@ export default function ReportPage() {
 
       <PostMortemComparison steps={comparisonSteps} />
 
-      <div className="border border-border-default rounded p-4">
+      <div>
         <h2 className="text-sm uppercase text-text-secondary mb-2">Feedback</h2>
-        <p className="text-sm leading-relaxed">{report.feedback}</p>
+        <ScreenBezel glow="info">
+          <p className="p-4 text-sm leading-relaxed">{report.feedback}</p>
+        </ScreenBezel>
       </div>
 
       <div className="flex justify-center gap-3">

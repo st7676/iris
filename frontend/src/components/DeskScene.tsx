@@ -95,13 +95,20 @@ export default function DeskScene({ actions, onSelect, disabled, className }: De
             disabled={disabled}
             title={action.label}
             style={pos}
-            className="group absolute rounded-md bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent-info disabled:cursor-not-allowed"
+            className={`group absolute rounded-md bg-transparent outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-accent-info disabled:cursor-not-allowed ${
+              // A faint, always-on outline on objects that haven't been
+              // found yet -- otherwise nothing on the scene hints these
+              // are clickable until a mouse happens to pass over them.
+              // Brightens to the full hover glow (handled by slotStyle's
+              // drop-shadow filter on the SVG itself) on hover/focus.
+              action.revealed ? '' : 'shadow-[0_0_0_1px_rgba(0,153,255,0.3)] hover:shadow-none'
+            }`}
           >
             <span
               className={`pointer-events-none absolute inset-x-0 -bottom-6 truncate px-1 text-center text-[10px] uppercase tracking-wide transition-opacity ${
                 action.revealed
                   ? 'text-accent-info opacity-80'
-                  : 'text-accent-success opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+                  : 'text-accent-success opacity-40 group-hover:opacity-100 group-focus-visible:opacity-100'
               }`}
             >
               {action.label}
@@ -199,6 +206,11 @@ function DeskSceneArt({ hovered, revealed }: DeskSceneArtProps) {
           <stop offset="55%" stopColor="rgba(0,0,0,0)" />
           <stop offset="100%" stopColor="rgba(0,0,0,0.55)" />
         </radialGradient>
+        {/* Bounds the "live" scrolling code lines on the center monitor so
+            their animated width never draws outside the screen bezel. */}
+        <clipPath id="centerScreenClip">
+          <rect x="168" y="-14" width="304" height="198" />
+        </clipPath>
       </defs>
 
       <g transform={`scale(${SCENE_SCALE})`}>
@@ -329,8 +341,24 @@ function DeskSceneArt({ hovered, revealed }: DeskSceneArtProps) {
             return (
               <g key={i}>
                 <rect x="1348" y={82 + i * 50} width="184" height="38" fill="#191f3d" stroke="#0a0d1e" />
-                <circle cx="1518" cy={101 + i * 50} r="3" fill={colors[i % colors.length]} />
-                <circle cx="1506" cy={101 + i * 50} r="2" fill={colors[(i + 2) % colors.length]} opacity="0.8" />
+                <circle cx="1518" cy={101 + i * 50} r="3" fill={colors[i % colors.length]}>
+                  <animate
+                    attributeName="opacity"
+                    values="1;0.25;1"
+                    dur={`${1.1 + (i % 4) * 0.35}s`}
+                    begin={`${(i * 0.21).toFixed(2)}s`}
+                    repeatCount="indefinite"
+                  />
+                </circle>
+                <circle cx="1506" cy={101 + i * 50} r="2" fill={colors[(i + 2) % colors.length]} opacity="0.8">
+                  <animate
+                    attributeName="opacity"
+                    values="0.8;0.15;0.8"
+                    dur={`${0.9 + (i % 3) * 0.4}s`}
+                    begin={`${(i * 0.13).toFixed(2)}s`}
+                    repeatCount="indefinite"
+                  />
+                </circle>
                 <rect x="1358" y={95 + i * 50} width={40 + ((i * 13) % 90)} height="4" fill="rgba(120,180,220,0.18)" />
               </g>
             )
@@ -391,16 +419,34 @@ function DeskSceneArt({ hovered, revealed }: DeskSceneArtProps) {
             <rect x="168" y="-14" width="304" height="198" fill="url(#screenCode)" />
             <rect x="290" y="200" width="80" height="22" fill="#0d0f1a" />
             <rect x="250" y="222" width="160" height="10" fill="#0a0c16" />
-            {Array.from({ length: 8 }).map((_, i) => (
-              <rect
-                key={i}
-                x="184"
-                y={2 + i * 22}
-                width={40 + ((i * 41) % 190)}
-                height="6"
-                fill={i % 3 === 0 ? 'rgba(47,191,113,0.22)' : 'rgba(150,200,255,0.12)'}
-              />
-            ))}
+            {/* "Live" scrolling code -- each line's width animates from a
+                stub to its full length and back, staggered per row, so the
+                center monitor reads as an actively-updating terminal
+                rather than a static screenshot. */}
+            <g clipPath="url(#centerScreenClip)">
+              {Array.from({ length: 8 }).map((_, i) => {
+                const fullWidth = 40 + ((i * 41) % 190)
+                const stubWidth = Math.max(12, fullWidth * 0.15)
+                return (
+                  <rect
+                    key={i}
+                    x="184"
+                    y={2 + i * 22}
+                    height="6"
+                    fill={i % 3 === 0 ? 'rgba(47,191,113,0.22)' : 'rgba(150,200,255,0.12)'}
+                  >
+                    <animate
+                      attributeName="width"
+                      values={`${stubWidth};${fullWidth};${fullWidth};${stubWidth}`}
+                      keyTimes="0;0.3;0.85;1"
+                      dur="4.5s"
+                      begin={`${(i * 0.4).toFixed(2)}s`}
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                )
+              })}
+            </g>
           </g>
 
           {/* right monitor -- security alert. Pulses only while

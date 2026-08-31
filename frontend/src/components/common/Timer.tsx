@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IconClock } from './icons'
 
 interface TimerProps {
   startedAt: string
@@ -36,10 +37,11 @@ export default function Timer({ startedAt }: TimerProps) {
 
   return (
     <div
-      className={`font-mono text-xs uppercase tracking-wide border px-2 py-1 rounded ${colorClass}`}
+      className={`flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide border px-2 py-1 rounded ${colorClass}`}
       title="Time elapsed since incident was reported"
     >
-      ⏱ {display}
+      <IconClock className="shrink-0" />
+      {display}
     </div>
   )
 }

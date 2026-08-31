@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import LiveStatusBar from './components/common/LiveStatusBar'
+import BootSequence, { shouldShowBootSequence } from './components/common/BootSequence'
 import HomePage from './pages/HomePage'
 import BriefingPage from './pages/BriefingPage'
 import SimulationPage from './pages/SimulationPage'
@@ -18,12 +19,17 @@ function ProtectedRoute({ element }: { element: React.ReactNode }) {
 function App() {
   const userId = useSimulationStore((state) => state.userId)
   const [mounted, setMounted] = useState(false)
+  const [booting, setBooting] = useState(shouldShowBootSequence)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   if (!mounted) return null
+
+  if (booting) {
+    return <BootSequence onDone={() => setBooting(false)} />
+  }
 
   return (
     <>

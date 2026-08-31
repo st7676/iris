@@ -1,7 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import MetaBadge from '../components/common/MetaBadge'
+import ScreenBezel from '../components/common/ScreenBezel'
+import { IconClock, IconBot, IconTarget } from '../components/common/icons'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { SCENARIOS } from '../lib/scenarios'
+import { playClick } from '../lib/sound'
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -16,6 +19,7 @@ export default function HomePage() {
   // the simulation -- startSimulation() is only called once the analyst
   // confirms they're ready there (see BriefingPage).
   const goToBriefing = (scenarioId: string) => {
+    playClick()
     navigate(`/briefing/${scenarioId}`)
   }
 
@@ -43,9 +47,9 @@ export default function HomePage() {
         </p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <MetaBadge icon="⏱" label="~15 min" />
-          <MetaBadge icon="🤖" label="AI-Powered" />
-          <MetaBadge icon="🎯" label="SOC Training" />
+          <MetaBadge icon={<IconClock />} label="~15 min" />
+          <MetaBadge icon={<IconBot />} label="AI-Powered" />
+          <MetaBadge icon={<IconTarget />} label="SOC Training" />
         </div>
 
         <p className="mt-10 font-display text-xs uppercase tracking-widest text-text-secondary">
@@ -53,17 +57,24 @@ export default function HomePage() {
         </p>
         <div className="mt-4 grid w-full max-w-2xl gap-6 sm:grid-cols-2">
           {Object.values(SCENARIOS).map((scenario) => (
-            <button
+            <ScreenBezel
               key={scenario.id}
-              onClick={() => goToBriefing(scenario.id)}
-              className="case-folder p-5 pt-6 text-left hover:-translate-y-1 hover:shadow-[0_14px_28px_rgba(0,0,0,0.55)] transition-all"
+              glow="info"
+              className="hover:-translate-y-1 hover:shadow-[0_14px_28px_rgba(0,0,0,0.55)] transition-transform"
             >
-              <span className="stamp text-accent-danger text-[10px]">Case File</span>
-              <p className="font-display mt-3 text-base">
-                {scenario.title}
-              </p>
-              <p className="mt-2 text-xs leading-relaxed opacity-80">{scenario.tagline}</p>
-            </button>
+              <button
+                onClick={() => goToBriefing(scenario.id)}
+                className="relative z-10 w-full h-full p-5 pt-6 text-left hover:bg-bg-tertiary/60 transition-colors"
+              >
+                <span className="stamp border-accent-danger text-accent-danger text-glow-danger text-[10px]">
+                  Case File
+                </span>
+                <p className="font-display mt-3 text-base">
+                  {scenario.title}
+                </p>
+                <p className="mt-2 text-xs leading-relaxed opacity-80">{scenario.tagline}</p>
+              </button>
+            </ScreenBezel>
           ))}
         </div>
 

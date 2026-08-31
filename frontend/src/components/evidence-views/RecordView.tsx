@@ -1,3 +1,4 @@
+import { IconUser, IconX } from '../common/icons'
 import type { EvidenceDetails } from '../../lib/scenarios'
 
 interface RecordViewProps {
@@ -17,7 +18,7 @@ export default function RecordView({ details, onClose }: RecordViewProps) {
         className="absolute right-3 top-3 text-paper-text/60 hover:text-paper-text transition-colors"
         aria-label="Close"
       >
-        ✕
+        <IconX />
       </button>
 
       <div className="mb-4 flex items-start justify-between gap-4 border-b-2 border-paper-text/20 pb-3">
@@ -25,8 +26,8 @@ export default function RecordView({ details, onClose }: RecordViewProps) {
           <p className="font-display text-sm uppercase tracking-wide">SecureFlow Technologies</p>
           <p className="text-xs text-paper-text/60">Personnel Record</p>
         </div>
-        <div className="flex h-16 w-14 shrink-0 items-center justify-center rounded border-2 border-paper-text/30 bg-black/10 text-2xl">
-          👤
+        <div className="flex h-16 w-14 shrink-0 items-center justify-center rounded border-2 border-paper-text/30 bg-black/10">
+          <IconUser size={28} />
         </div>
       </div>
 
