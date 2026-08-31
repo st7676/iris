@@ -189,6 +189,14 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     const data = isRegister
       ? await registerUser(username, password)
       : await loginUser(username, password)
+    // The API contract is {access_token, user: {id, ...}} (see backend's
+    // TokenResponse) -- but a stale/mismatched backend or a future API
+    // change could send something else. Fail with a message the user can
+    // act on instead of a raw "Cannot read properties of undefined" from
+    // reaching into data.user.id.
+    if (!data?.access_token || !data?.user?.id) {
+      throw new Error('Unexpected response from server -- please try again')
+    }
     storeUserId(data.user.id)
     storeToken(data.access_token)
     set({ userId: data.user.id, token: data.access_token })

@@ -17,6 +17,11 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!username || !password) {
+      setError('Agent codename and passphrase are required')
+      playError()
+      return
+    }
     setLoading(true)
 
     try {
@@ -34,6 +39,11 @@ export default function LoginPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!username || !password) {
+      setError('Agent codename and passphrase are required')
+      playError()
+      return
+    }
     setLoading(true)
 
     try {
@@ -64,7 +74,11 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={showRegister ? handleRegister : handleLogin} className="space-y-4">
+          <form
+            onSubmit={showRegister ? handleRegister : handleLogin}
+            noValidate
+            className="space-y-4"
+          >
             <div className="text-left">
               <label className="text-xs uppercase mb-1 block tracking-widest opacity-80">
                 Agent Codename
