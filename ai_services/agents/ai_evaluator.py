@@ -17,7 +17,9 @@ class AIEvaluator(BaseAgent):
     def get_system_prompt(self, scenario_id: str | None = None) -> str:
         return EVALUATOR_SYSTEM_PROMPT
 
-    def evaluate(self, ideal_chain: list, actual_chain: list, final_severity: str) -> dict:
+    def evaluate(
+        self, ideal_chain: list, actual_chain: list, final_severity: str, language: str = "en"
+    ) -> dict:
         """Evaluate the user's performance."""
         # ideal_chain comes from our own scenario data (trusted). actual_chain's
         # action names are derived from client-supplied evidence_type/decision
@@ -35,7 +37,7 @@ class AIEvaluator(BaseAgent):
         prompt = base_prompt
         last_error: ValueError | None = None
         for attempt in range(self.MAX_JSON_RETRIES + 1):
-            response_text = self.call(prompt)
+            response_text = self.call(prompt, language=language)
             try:
                 return self._parse_and_validate(response_text)
             except ValueError as exc:

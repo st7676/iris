@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconVolume, IconVolumeMute } from './icons'
 import { isSoundEnabled, setSoundEnabled, playClick } from '../../lib/sound'
+import LanguageToggle from './LanguageToggle'
 
 // Inspired by https://escaperoom.autoright10.com/'s top ticker bar
 // ("מבצע חירום" / "שידור חי" with pulsing live-broadcast dots). Global,
@@ -19,6 +21,7 @@ function PulseDot({ colorClass }: { colorClass: string }) {
 // Lives here rather than a dedicated corner widget because this bar is
 // already rendered once, above every page.
 function SoundToggle() {
+  const { t } = useTranslation()
   const [enabled, setEnabled] = useState(isSoundEnabled)
 
   useEffect(() => {
@@ -33,11 +36,13 @@ function SoundToggle() {
     if (next) playClick()
   }
 
+  const label = enabled ? t('liveStatusBar.muteSound') : t('liveStatusBar.unmuteSound')
+
   return (
     <button
       onClick={toggle}
-      title={enabled ? 'Mute console sounds' : 'Unmute console sounds'}
-      aria-label={enabled ? 'Mute console sounds' : 'Unmute console sounds'}
+      title={label}
+      aria-label={label}
       className="text-text-secondary hover:text-text-primary transition-colors"
     >
       {enabled ? <IconVolume size={13} /> : <IconVolumeMute size={13} />}
@@ -46,19 +51,22 @@ function SoundToggle() {
 }
 
 export default function LiveStatusBar() {
+  const { t } = useTranslation()
+
   return (
     <div className="flex w-full items-center justify-between border-b border-border-default bg-bg-secondary px-4 py-1.5 text-[11px] uppercase tracking-wider">
       <div className="flex items-center gap-2 text-accent-danger">
         <PulseDot colorClass="bg-accent-danger" />
-        Live Simulation
+        {t('liveStatusBar.live')}
       </div>
-      <div className="hidden text-text-secondary sm:block">// IRIS Cyber Defense Console</div>
+      <div className="hidden text-text-secondary sm:block">{t('liveStatusBar.subtitle')}</div>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-accent-success">
           <PulseDot colorClass="bg-accent-success" />
-          System Online
+          {t('liveStatusBar.online')}
         </div>
         <SoundToggle />
+        <LanguageToggle />
       </div>
     </div>
   )

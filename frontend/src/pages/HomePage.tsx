@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import MetaBadge from '../components/common/MetaBadge'
 import ScreenBezel from '../components/common/ScreenBezel'
 import { IconClock, IconBot, IconTarget } from '../components/common/icons'
@@ -9,6 +10,7 @@ import { playClick } from '../lib/sound'
 export default function HomePage() {
   const navigate = useNavigate()
   const { logout } = useSimulationStore()
+  const { t } = useTranslation()
 
   const handleLogout = () => {
     logout()
@@ -29,12 +31,12 @@ export default function HomePage() {
         onClick={handleLogout}
         className="absolute top-4 right-4 text-xs text-text-secondary border border-border-default px-3 py-1 hover:border-accent-danger hover:text-accent-danger transition-colors"
       >
-        Logout
+        {t('home.logout')}
       </button>
 
       <div className="max-w-4xl mx-auto flex flex-col items-center py-12 text-center">
         <p className="text-xs uppercase tracking-[0.4em] text-accent-danger mb-4 animate-pulse">
-          // Incoming Transmission
+          {t('home.incomingTransmission')}
         </p>
 
         <h1 className="briefing-glow font-display text-5xl sm:text-6xl tracking-widest text-accent-success">
@@ -42,18 +44,18 @@ export default function HomePage() {
         </h1>
 
         <p className="mt-4 max-w-xl text-lg text-text-primary leading-relaxed">
-          A live breach is unfolding. You're the analyst on shift tonight —
-          <span className="text-accent-danger"> every decision changes what happens next.</span>
+          {t('home.subtitle')}
+          <span className="text-accent-danger"> {t('home.subtitleHighlight')}</span>
         </p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          <MetaBadge icon={<IconClock />} label="~15 min" />
-          <MetaBadge icon={<IconBot />} label="AI-Powered" />
-          <MetaBadge icon={<IconTarget />} label="SOC Training" />
+          <MetaBadge icon={<IconClock />} label={t('home.badgeDuration')} />
+          <MetaBadge icon={<IconBot />} label={t('home.badgeAi')} />
+          <MetaBadge icon={<IconTarget />} label={t('home.badgeTraining')} />
         </div>
 
         <p className="mt-10 font-display text-xs uppercase tracking-widest text-text-secondary">
-          Open a Case File
+          {t('home.openCaseFile')}
         </p>
         <div className="mt-4 grid w-full max-w-2xl gap-6 sm:grid-cols-2">
           {Object.values(SCENARIOS).map((scenario) => (
@@ -67,7 +69,7 @@ export default function HomePage() {
                 className="relative z-10 w-full h-full p-5 pt-6 text-left hover:bg-bg-tertiary/60 transition-colors"
               >
                 <span className="stamp border-accent-danger text-accent-danger text-glow-danger text-[10px]">
-                  Case File
+                  {t('home.caseFile')}
                 </span>
                 <p className="font-display mt-3 text-base">
                   {scenario.title}
@@ -83,13 +85,13 @@ export default function HomePage() {
             onClick={() => navigate('/history')}
             className="flex-1 border border-border-default text-text-secondary py-2 px-4 uppercase tracking-wide text-sm hover:border-border-highlight transition-all"
           >
-            My History
+            {t('home.myHistory')}
           </button>
           <button
             onClick={() => navigate('/instructor-dashboard')}
             className="flex-1 border border-accent-warning text-accent-warning py-2 px-4 uppercase tracking-wide text-sm hover:bg-accent-warning/10 transition-all"
           >
-            Instructor Dashboard
+            {t('home.instructorDashboard')}
           </button>
         </div>
       </div>

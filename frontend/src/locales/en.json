@@ -1,0 +1,185 @@
+{
+  "common": {
+    "back": "← Back",
+    "home": "Home",
+    "close": "Close"
+  },
+  "liveStatusBar": {
+    "live": "Live Simulation",
+    "subtitle": "// IRIS Cyber Defense Console",
+    "online": "System Online",
+    "muteSound": "Mute console sounds",
+    "unmuteSound": "Unmute console sounds"
+  },
+  "language": {
+    "toggle": "עברית"
+  },
+  "boot": {
+    "subtitle": "Cyber Defense Console",
+    "accessGranted": "Access Granted",
+    "skipHint": "Click or press any key to skip",
+    "lines": {
+      "core": "core services",
+      "uplink": "secure uplink",
+      "threatFeed": "threat intelligence feed",
+      "sensorArray": "desk sensor array"
+    }
+  },
+  "home": {
+    "logout": "Logout",
+    "incomingTransmission": "// Incoming Transmission",
+    "subtitle": "A live breach is unfolding. You're the analyst on shift tonight —",
+    "subtitleHighlight": "every decision changes what happens next.",
+    "badgeDuration": "~15 min",
+    "badgeAi": "AI-Powered",
+    "badgeTraining": "SOC Training",
+    "openCaseFile": "Open a Case File",
+    "caseFile": "Case File",
+    "myHistory": "My History",
+    "instructorDashboard": "Instructor Dashboard"
+  },
+  "login": {
+    "restrictedAccess": "Restricted Access",
+    "subtitle": "Case File Access Terminal",
+    "requiredFields": "Agent codename and passphrase are required",
+    "usernameLabel": "Agent Codename",
+    "passwordLabel": "Passphrase",
+    "usernamePlaceholder": "agent_codename",
+    "processing": "Processing…",
+    "createAccount": "Create Account",
+    "accessSystem": "Access System",
+    "alreadyHaveAccess": "Already have access?",
+    "needCredentials": "Need credentials?",
+    "returnToLogin": "Return to Login",
+    "registerNewAccount": "Register New Agent",
+    "loginFailed": "Login failed",
+    "registrationFailed": "Registration failed"
+  },
+  "briefing": {
+    "missionBriefing": "▸ Mission Briefing",
+    "difficulty": "Difficulty: {{difficulty}}",
+    "yourObjectives": "Your Objectives",
+    "disclaimer": "You choose what to investigate and in what order — your decisions determine how the incident evolves and how severe it gets. There's no single right path, but some choices cost you more time than others.",
+    "beginSimulation": "Begin Simulation ▶",
+    "establishingConnection": "Establishing secure connection...",
+    "failedToStart": "Failed to start simulation"
+  },
+  "simulation": {
+    "loadingIncident": "Loading incident...",
+    "breaking": "Breaking",
+    "eventTimeline": "Event Timeline",
+    "evidenceBoard": "Evidence Board",
+    "noEvidence": "No evidence revealed yet. Investigate to find clues.",
+    "logs": "Logs",
+    "completeSimulation": "Complete Simulation",
+    "askMentor": "Ask Your Mentor for a Hint ({{count}} left)",
+    "askMentorSub": "Stuck? Get a nudge — costs points off your final score.",
+    "askMentorSubNoHints": "No hints left for this incident.",
+    "caseFile": "Case File",
+    "closeDrawer": "Close",
+    "defaultHintQuestion": "What action should I take next?",
+    "toast": {
+      "investigateDone": "{{label}}: investigation complete",
+      "actionTaken": "{{label}}: action taken",
+      "investigationFailed": "Failed: {{error}}",
+      "decisionFailed": "Failed: {{error}}",
+      "idleNudge": "Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.",
+      "mentorHint": "AI Mentor: {{hint}}",
+      "mentorHintLastOne": "AI Mentor: {{hint}} (that was your last hint)",
+      "mentorHintRemaining": "AI Mentor: {{hint}} ({{count}} hints left)",
+      "noHintsLeft": "No hints left for this incident — you'll have to manage on your own this time.",
+      "hintError": "Couldn't get a hint — check that the server connection is up",
+      "severityEscalated": "Severity escalated to {{severity}}",
+      "failedToStart": "Failed to start simulation: {{error}}"
+    }
+  },
+  "logViewer": {
+    "time": "Time",
+    "source": "Source",
+    "type": "Type",
+    "details": "Details"
+  },
+  "evidenceCard": {
+    "revealedAtStep": "Revealed at Step {{step}} | {{timestamp}}"
+  },
+  "evidenceView": {
+    "from": "From",
+    "to": "To",
+    "date": "Date",
+    "subject": "Subject",
+    "doNotClick": "Do not click -- shown for investigation only"
+  },
+  "report": {
+    "generatingReport": "Generating report...",
+    "failedToGenerate": "Failed to Generate Report",
+    "retry": "Retry",
+    "retrying": "Retrying...",
+    "noReportData": "No report data available.",
+    "feedback": "Feedback",
+    "nextSimulation": "Next Simulation",
+    "home": "Home"
+  },
+  "scoreboard": {
+    "simulationComplete": "Simulation Complete",
+    "finalScore": "Final Score",
+    "performanceBreakdown": "Performance Breakdown",
+    "detection": "Detection",
+    "decision": "Decision",
+    "response": "Response",
+    "outcome": {
+      "contained": {
+        "label": "Breach Contained",
+        "detail": "You identified and stopped the attacker before real damage was done."
+      },
+      "contained_with_damage": {
+        "label": "Breach Contained — Damage Done",
+        "detail": "The attacker was stopped, but not before causing damage that a faster response could have prevented."
+      },
+      "breach_successful": {
+        "label": "Breach Not Contained",
+        "detail": "The attacker completed their objective. This incident was not resolved in time."
+      }
+    }
+  },
+  "postMortem": {
+    "title": "Post-Mortem Walkthrough",
+    "step": "Step",
+    "idealChain": "Ideal Chain",
+    "yourChain": "Your Chain",
+    "status": "Status",
+    "correct": "Correct",
+    "wrong": "Wrong",
+    "missing": "Missing",
+    "none": "(none)",
+    "notDone": "(Not Done)"
+  },
+  "history": {
+    "title": "Simulation History",
+    "backToHome": "← Back to Home",
+    "loadingHistory": "Loading history...",
+    "noHistory": "No simulations yet",
+    "unknownScenario": "Operation Silent Login"
+  },
+  "instructor": {
+    "back": "← Back",
+    "title": "Instructor Dashboard",
+    "subtitle": "Track student progress and performance",
+    "loadingDashboard": "Loading dashboard...",
+    "failedToLoad": "Failed to Load Dashboard",
+    "noData": "No data available",
+    "totalSessions": "Total Sessions",
+    "averageScore": "Average Score",
+    "performanceByScenario": "Performance by Scenario",
+    "noSessionData": "No session data yet",
+    "scenario": "Scenario",
+    "sessions": "Sessions",
+    "avgScore": "Average Score",
+    "silentLogin": "Operation Silent Login",
+    "insiderThreat": "Insider Threat"
+  },
+  "timer": {
+    "elapsedTooltip": "Time elapsed since incident was reported",
+    "breachTooltip": "Breach deadline passed -- the attacker has completed their objective",
+    "breach": "BREACH"
+  }
+}

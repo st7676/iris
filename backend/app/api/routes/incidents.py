@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -55,6 +55,7 @@ async def investigate_incident(
     incident_id: str,
     payload: InvestigateRequest,
     current_user_id: UUID = Depends(get_current_user_id),
+    x_language: str = Header(default="en", alias="X-Language"),
 ) -> dict:
     incident = await _get_incident_or_404(incident_id, current_user_id)
 
@@ -84,7 +85,7 @@ async def investigate_incident(
     # request itself, the evidence was already recorded successfully.
     try:
         ai_update = await run_in_threadpool(
-            build_ai_commander_update, updated, payload.evidence_type
+            build_ai_commander_update, updated, payload.evidence_type, x_language
         )
         await manager.broadcast(incident_id, ai_update)
     except Exception:
@@ -160,6 +161,7 @@ async def hint_incident(
     incident_id: str,
     payload: HintRequest,
     current_user_id: UUID = Depends(get_current_user_id),
+    x_language: str = Header(default="en", alias="X-Language"),
 ) -> dict:
     incident = await _get_incident_or_404(incident_id, current_user_id)
 
@@ -184,6 +186,7 @@ async def hint_incident(
                 "severity": incident.get("severity"),
             },
             action_history=action_history,
+            language=x_language,
         )
     except Exception:
         logger.error("AI Mentor call failed for incident %s", incident_id, exc_info=True)
@@ -214,6 +217,7 @@ async def complete_incident(
     incident_id: str,
     db: Session = Depends(get_db),
     current_user_id: UUID = Depends(get_current_user_id),
+    x_language: str = Header(default="en", alias="X-Language"),
 ) -> dict:
     incident = await _get_incident_or_404(incident_id, current_user_id)
     scenario = await scenarios_collection.find_one({"scenario_id": incident["scenario_id"]})
@@ -233,6 +237,7 @@ async def complete_incident(
             ideal_chain=ideal_chain,
             actual_chain=actual_chain,
             final_severity=final_severity,
+            language=x_language,
         )
     except Exception:
         logger.error("AI Evaluator call failed for incident %s", incident_id, exc_info=True)

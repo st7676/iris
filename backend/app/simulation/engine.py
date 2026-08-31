@@ -67,7 +67,7 @@ def record_decision(decision: str, notes: Optional[str] = None) -> tuple[dict, s
     return action_entry, new_state
 
 
-def build_ai_commander_update(incident: dict, last_action: str) -> dict:
+def build_ai_commander_update(incident: dict, last_action: str, language: str = "en") -> dict:
     """Ask AI Commander for the next incident update, given current state."""
     message = ai_bridge.commander.generate_update(
         incident_context={
@@ -76,6 +76,7 @@ def build_ai_commander_update(incident: dict, last_action: str) -> dict:
             "alert_message": incident.get("alert_message"),
         },
         last_action=last_action,
+        language=language,
     )
     return {
         "type": "event_update",

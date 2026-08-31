@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { API_BASE, MAX_HINTS_PER_INCIDENT } from '../lib/constants'
+import { getLanguageHeader } from '../lib/language'
 import { DEFAULT_SCENARIO_ID, SCENARIOS, type EvidenceDetails } from '../lib/scenarios'
 
 const STORAGE_KEY = 'iris_user_id'
@@ -114,7 +115,7 @@ async function apiInvestigate(incidentId: string, scenarioId: string, label: str
   const evidenceType = resolveEvidenceType(scenarioId, label)
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/investigate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...getLanguageHeader() },
     body: JSON.stringify({ evidence_type: evidenceType }),
   })
   if (!res.ok) throw new Error(`Investigate failed: ${res.status}`)

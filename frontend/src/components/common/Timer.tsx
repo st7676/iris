@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconClock } from './icons'
 import { playAlert, playError } from '../../lib/sound'
 
@@ -19,6 +20,7 @@ const DEADLINE_AT_SECONDS = 600 // 10 min
 // conveyed elapsed time. This ticks up from when the incident was created,
 // styled like the rest of the glowing/monospace terminal UI.
 export default function Timer({ startedAt }: TimerProps) {
+  const { t } = useTranslation()
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   // Tracks which pressure tier we already announced, so the alert tone
   // plays once on the crossing (5 min, then again at 8 min) instead of
@@ -69,14 +71,10 @@ export default function Timer({ startedAt }: TimerProps) {
   return (
     <div
       className={`flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide border px-2 py-1 rounded ${colorClass}`}
-      title={
-        isPastDeadline
-          ? 'Breach deadline passed -- the attacker has completed their objective'
-          : 'Time elapsed since incident was reported'
-      }
+      title={isPastDeadline ? t('timer.breachTooltip') : t('timer.elapsedTooltip')}
     >
       <IconClock className="shrink-0" />
-      {isPastDeadline ? 'BREACH' : display}
+      {isPastDeadline ? t('timer.breach') : display}
     </div>
   )
 }

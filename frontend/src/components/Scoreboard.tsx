@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import ScreenBezel from './common/ScreenBezel'
 import ScoreMeter from './common/ScoreMeter'
 import { IconBlock, IconCheck } from './common/icons'
@@ -13,22 +14,8 @@ interface ScoreboardProps {
   resolved?: boolean
 }
 
-const OUTCOME_COPY: Record<NonNullable<ScoreboardProps['outcome']>, { label: string; detail: string }> = {
-  contained: {
-    label: 'Breach Contained',
-    detail: 'You identified and stopped the attacker before real damage was done.',
-  },
-  contained_with_damage: {
-    label: 'Breach Contained — Damage Done',
-    detail: 'The attacker was stopped, but not before causing damage that a faster response could have prevented.',
-  },
-  breach_successful: {
-    label: 'Breach Not Contained',
-    detail: 'The attacker completed their objective. This incident was not resolved in time.',
-  },
-}
-
 export default function Scoreboard({ finalScore, breakdown, outcome, resolved }: ScoreboardProps) {
+  const { t } = useTranslation()
   const [animated, setAnimated] = useState(false)
 
   useEffect(() => {
@@ -36,7 +23,9 @@ export default function Scoreboard({ finalScore, breakdown, outcome, resolved }:
     return () => clearTimeout(timer)
   }, [])
 
-  const outcomeCopy = outcome ? OUTCOME_COPY[outcome] : null
+  const outcomeCopy = outcome
+    ? { label: t(`scoreboard.outcome.${outcome}.label`), detail: t(`scoreboard.outcome.${outcome}.detail`) }
+    : null
 
   return (
     <div className="space-y-4">
@@ -57,15 +46,15 @@ export default function Scoreboard({ finalScore, breakdown, outcome, resolved }:
       <ScreenBezel glow={resolved === false ? 'danger' : 'success'} className="hud-frame">
         <div className="flex flex-col items-center gap-3 p-6 text-center">
           <h1 className="text-lg uppercase tracking-widest text-text-secondary">
-            Simulation Complete
+            {t('scoreboard.simulationComplete')}
           </h1>
-          <ScoreMeter value={finalScore} label="Final Score" />
+          <ScoreMeter value={finalScore} label={t('scoreboard.finalScore')} />
         </div>
       </ScreenBezel>
 
       <ScreenBezel glow="info">
         <div className="p-4 space-y-3">
-          <h2 className="text-sm uppercase text-text-secondary">Performance Breakdown</h2>
+          <h2 className="text-sm uppercase text-text-secondary">{t('scoreboard.performanceBreakdown')}</h2>
           {breakdown.map((item) => (
             <div key={item.label}>
               <div className="flex justify-between text-xs mb-1">

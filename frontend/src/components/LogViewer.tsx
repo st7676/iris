@@ -1,4 +1,6 @@
-﻿interface LogEntry {
+import { useTranslation } from 'react-i18next'
+
+interface LogEntry {
   time: string
   source: string
   type: string
@@ -10,14 +12,16 @@ interface LogViewerProps {
 }
 
 export default function LogViewer({ logs }: LogViewerProps) {
+  const { t } = useTranslation()
+
   return (
     <table className="w-full text-xs font-mono">
       <thead>
         <tr className="bg-bg-tertiary text-accent-success uppercase text-left">
-          <th className="px-2 py-1">Time</th>
-          <th className="px-2 py-1">Source</th>
-          <th className="px-2 py-1">Type</th>
-          <th className="px-2 py-1">Details</th>
+          <th className="px-2 py-1">{t('logViewer.time')}</th>
+          <th className="px-2 py-1">{t('logViewer.source')}</th>
+          <th className="px-2 py-1">{t('logViewer.type')}</th>
+          <th className="px-2 py-1">{t('logViewer.details')}</th>
         </tr>
       </thead>
       <tbody>

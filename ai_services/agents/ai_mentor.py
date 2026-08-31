@@ -9,7 +9,9 @@ class AIMentor(BaseAgent):
     def get_system_prompt(self, scenario_id: str | None = None) -> str:
         return MENTOR_SYSTEM_PROMPT
 
-    def provide_hint(self, user_question: str, incident_context: dict, action_history: list) -> str:
+    def provide_hint(
+        self, user_question: str, incident_context: dict, action_history: list, language: str = "en"
+    ) -> str:
         """Provide a hint to guide the user."""
         safe_question = sanitize_user_input(user_question)
         history_str = " -> ".join(action_history)
@@ -19,4 +21,4 @@ class AIMentor(BaseAgent):
             incident_context=context_str,
             action_history=history_str,
         )
-        return self.call(prompt, scenario_id=incident_context.get("scenario_id"))
+        return self.call(prompt, scenario_id=incident_context.get("scenario_id"), language=language)

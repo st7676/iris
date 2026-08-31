@@ -1,5 +1,6 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Spinner from '../components/common/Spinner'
 import ScreenBezel from '../components/common/ScreenBezel'
 import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
@@ -21,6 +22,7 @@ interface HistorySession {
 
 export default function HistoryPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const userId = useSimulationStore((state) => state.userId)
   const [history, setHistory] = useState<HistorySession[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +42,7 @@ export default function HistoryPage() {
         setHistory(
           data.sessions?.map((s: any) => ({
             id: s.incident_id || 'Unknown',
-            scenario: 'Operation Silent Login',
+            scenario: t('history.unknownScenario'),
             date: new Date(s.completed_at).toLocaleDateString(),
             score: Math.round(s.score),
             severity: s.score >= 80 ? 'low' : s.score >= 60 ? 'medium' : 'high',
@@ -54,12 +56,12 @@ export default function HistoryPage() {
     }
 
     fetchHistory()
-  }, [userId])
+  }, [userId, t])
 
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
-        <Spinner label="טוען היסטוריה..." />
+        <Spinner label={t('history.loadingHistory')} />
       </div>
     )
   }
@@ -68,19 +70,19 @@ export default function HistoryPage() {
     <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg uppercase tracking-widest text-accent-success font-bold">
-          Simulation History
+          {t('history.title')}
         </h1>
         <button
           onClick={() => navigate('/')}
           className="text-xs uppercase text-text-secondary hover:text-text-primary transition-colors"
         >
-          ← Back to Home
+          {t('history.backToHome')}
         </button>
       </div>
 
       {history.length === 0 ? (
         <div className="border border-border-default rounded p-4 text-center">
-          <p className="text-sm text-text-secondary">אין היסטוריה של סימולציות עדיין</p>
+          <p className="text-sm text-text-secondary">{t('history.noHistory')}</p>
         </div>
       ) : (
         <ScreenBezel glow="info">

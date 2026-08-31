@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import ScreenBezel from './common/ScreenBezel'
 import { IconCheck, IconX } from './common/icons'
 
@@ -24,24 +25,25 @@ const statusIcon = {
   missing: IconX,
 }
 
-const statusText = {
-  correct: 'Correct',
-  wrong: 'Wrong',
-  missing: 'Missing',
-}
-
 export default function PostMortemComparison({ steps }: PostMortemComparisonProps) {
+  const { t } = useTranslation()
+  const statusText = {
+    correct: t('postMortem.correct'),
+    wrong: t('postMortem.wrong'),
+    missing: t('postMortem.missing'),
+  }
+
   return (
     <div>
-      <h2 className="text-sm uppercase text-text-secondary mb-3">Post-Mortem Walkthrough</h2>
+      <h2 className="text-sm uppercase text-text-secondary mb-3">{t('postMortem.title')}</h2>
       <ScreenBezel glow="info">
         <table className="w-full text-xs font-mono">
           <thead>
             <tr className="text-accent-success uppercase text-left border-b border-border-default">
-              <th className="py-2 pl-4">Step</th>
-              <th className="py-2">Ideal Chain</th>
-              <th className="py-2">Your Chain</th>
-              <th className="py-2 pr-4">Status</th>
+              <th className="py-2 pl-4">{t('postMortem.step')}</th>
+              <th className="py-2">{t('postMortem.idealChain')}</th>
+              <th className="py-2">{t('postMortem.yourChain')}</th>
+              <th className="py-2 pr-4">{t('postMortem.status')}</th>
             </tr>
           </thead>
           <tbody>

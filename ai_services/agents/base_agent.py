@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from utils.language import DEFAULT_LANGUAGE, language_instruction
 from utils.logger import log_ai_call
 from utils.openai_client import OpenAIClient
 
@@ -15,8 +16,13 @@ class BaseAgent(ABC):
         vocab on every call. Agents that don't have per-scenario content
         (Mentor, Evaluator) just ignore it."""
 
-    def call(self, user_message: str, scenario_id: str | None = None) -> str:
-        system_prompt = self.get_system_prompt(scenario_id)
+    def call(
+        self,
+        user_message: str,
+        scenario_id: str | None = None,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> str:
+        system_prompt = self.get_system_prompt(scenario_id) + "\n\n" + language_instruction(language)
         response, usage = self.client.call(system_prompt, user_message)
         log_ai_call(
             self.__class__.__name__,

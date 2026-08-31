@@ -22,7 +22,7 @@ class AICommander(BaseAgent):
             vocabulary = "\n- ".join(COMMANDER_SCENARIO_VOCABULARY.values())
         return COMMANDER_SYSTEM_PROMPT_TEMPLATE.format(scenario_vocabulary=vocabulary)
 
-    def generate_update(self, incident_context: dict, last_action: str) -> str:
+    def generate_update(self, incident_context: dict, last_action: str, language: str = "en") -> str:
         """Generate next incident update."""
         # last_action ultimately comes from the client-supplied
         # evidence_type on /investigate (InvestigateRequest.evidence_type
@@ -35,4 +35,4 @@ class AICommander(BaseAgent):
             last_action=safe_last_action,
             severity=incident_context.get("severity", "UNKNOWN"),
         )
-        return self.call(prompt, scenario_id=incident_context.get("scenario_id"))
+        return self.call(prompt, scenario_id=incident_context.get("scenario_id"), language=language)
