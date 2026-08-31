@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Scoreboard from '../components/Scoreboard'
 import PostMortemComparison from '../components/PostMortemComparison'
 import Spinner from '../components/common/Spinner'
-import { useSimulationStore } from '../hooks/useSimulation'
+import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
 
 async function completeIncident(incidentId: string) {
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/complete`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
   })
   if (!res.ok) throw new Error(`Complete failed: ${res.status}`)
   return res.json()

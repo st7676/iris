@@ -41,3 +41,24 @@ class ScenarioMetadata(Base):
     title = Column(String, nullable=False)
     difficulty = Column(String, nullable=True)
     times_played = Column(Integer, default=0)
+
+
+class RevokedToken(Base):
+    """
+    Tokens explicitly invalidated via POST /api/users/logout, checked on
+    every authenticated request (see app/deps.py's get_current_token).
+    Keyed by jti (the token's own unique id), not the token string itself
+    -- smaller row, and never stores a live credential at rest.
+
+    No cleanup job for expired rows yet (MVP scope) -- expires_at is
+    recorded so a future job can safely prune rows past their token's own
+    expiry (once expired, the token is worthless anyway, so the row is
+    dead weight, not a security gap).
+    """
+
+    __tablename__ = "revoked_tokens"
+
+    jti = Column(String, primary_key=True)
+    user_id = Column(PG_UUID(as_uuid=True), nullable=False)
+    revoked_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)

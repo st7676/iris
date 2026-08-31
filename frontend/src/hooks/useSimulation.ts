@@ -3,6 +3,7 @@ import { API_BASE } from '../lib/constants'
 import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
 
 const STORAGE_KEY = 'iris_user_id'
+const TOKEN_STORAGE_KEY = 'iris_access_token'
 
 function getStoredUserId(): string | null {
   return localStorage.getItem(STORAGE_KEY)
@@ -14,6 +15,43 @@ function storeUserId(id: string): void {
 
 function clearStoredUserId(): void {
   localStorage.removeItem(STORAGE_KEY)
+}
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_STORAGE_KEY)
+}
+
+function storeToken(token: string): void {
+  localStorage.setItem(TOKEN_STORAGE_KEY, token)
+}
+
+function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_STORAGE_KEY)
+}
+
+// Every endpoint except /users/register and /users/login requires this
+// (see backend/app/deps.py's get_current_user_id) -- exported so pages that
+// fetch() directly (ReportPage, HistoryPage, InstructorDashboardPage, ...)
+// can attach it without duplicating the localStorage read.
+export function getAuthHeaders(): Record<string, string> {
+  const token = getStoredToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+// The WebSocket handshake can't carry an Authorization header, so it needs
+// a token in the URL instead -- but the normal access token is valid for a
+// day, far longer than a handshake needs to sit exposed in a URL (server
+// logs, browser history). Exchange it for a short-lived, single-purpose
+// ticket right before connecting (see backend/app/core/security.py's
+// create_ws_ticket / POST /api/users/ws-ticket).
+export async function getWsTicket(): Promise<string> {
+  const res = await fetch(`${API_BASE}/users/ws-ticket`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) throw new Error(`Failed to get WS ticket: ${res.status}`)
+  const data = await res.json()
+  return data.ws_ticket
 }
 
 async function loginUser(username: string, password: string) {
@@ -50,7 +88,7 @@ async function registerUser(username: string, password: string, email?: string) 
 async function startScenario(userId: string, scenarioId: string) {
   const res = await fetch(`${API_BASE}/scenarios/${scenarioId}/start`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ scenario_id: scenarioId, user_id: userId }),
   })
   if (!res.ok) throw new Error(`Start scenario failed: ${res.status}`)
@@ -76,7 +114,7 @@ async function apiInvestigate(incidentId: string, scenarioId: string, label: str
   const evidenceType = resolveEvidenceType(scenarioId, label)
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/investigate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ evidence_type: evidenceType }),
   })
   if (!res.ok) throw new Error(`Investigate failed: ${res.status}`)
@@ -87,7 +125,7 @@ async function apiDecide(incidentId: string, scenarioId: string, label: string) 
   const decision = resolveDecision(scenarioId, label)
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/decide`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ decision, notes: '' }),
   })
   if (!res.ok) throw new Error(`Decide failed: ${res.status}`)
@@ -128,6 +166,7 @@ interface SimulationState {
   actionLog: ActionLogEntry[]
   completed: boolean
   userId: string | null
+  token: string | null
   login: (username: string, password: string, isRegister?: boolean) => Promise<void>
   logout: () => void
   startSimulation: (scenarioId?: string) => Promise<void>
@@ -143,18 +182,28 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   actionLog: [],
   completed: false,
   userId: getStoredUserId(),
+  token: getStoredToken(),
 
   login: async (username: string, password: string, isRegister = false) => {
-    const user = isRegister
+    const data = isRegister
       ? await registerUser(username, password)
       : await loginUser(username, password)
-    storeUserId(user.id)
-    set({ userId: user.id })
+    storeUserId(data.user.id)
+    storeToken(data.access_token)
+    set({ userId: data.user.id, token: data.access_token })
   },
 
   logout: () => {
+    // Best-effort: revoke the token server-side (see backend/app/api/routes/users.py's
+    // /logout) so it can't be replayed if it leaked, but don't block clearing
+    // the local session on it -- the user should end up logged out locally
+    // either way, even if this request fails (offline, Postgres down, etc.).
+    fetch(`${API_BASE}/users/logout`, { method: 'POST', headers: getAuthHeaders() }).catch(
+      (error) => console.error('Failed to revoke token on logout:', error)
+    )
     clearStoredUserId()
-    set({ userId: null })
+    clearStoredToken()
+    set({ userId: null, token: null })
   },
 
   startSimulation: async (scenarioId: string = DEFAULT_SCENARIO_ID) => {

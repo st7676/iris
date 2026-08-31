@@ -11,7 +11,7 @@ from app.core import ai_bridge
 from app.core.ws_manager import manager
 from app.db.mongodb import incidents_collection, scenarios_collection
 from app.db.postgres import SessionScore
-from app.deps import get_db
+from app.deps import get_current_user_id, get_db
 from app.models.incident import (
     DecideRequest,
     HintRequest,
@@ -32,21 +32,29 @@ logger = logging.getLogger("iris.incidents")
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 
 
-async def _get_incident_or_404(incident_id: str) -> dict:
+async def _get_incident_or_404(incident_id: str, current_user_id: UUID) -> dict:
     incident = await incidents_collection.find_one({"incident_id": incident_id})
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
+    if incident.get("user_id") != str(current_user_id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this incident")
     return incident
 
 
 @router.get("/{incident_id}", response_model=IncidentResponse)
-async def get_incident(incident_id: str) -> dict:
-    return await _get_incident_or_404(incident_id)
+async def get_incident(
+    incident_id: str, current_user_id: UUID = Depends(get_current_user_id)
+) -> dict:
+    return await _get_incident_or_404(incident_id, current_user_id)
 
 
 @router.post("/{incident_id}/investigate", response_model=IncidentResponse)
-async def investigate_incident(incident_id: str, payload: InvestigateRequest) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def investigate_incident(
+    incident_id: str,
+    payload: InvestigateRequest,
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
 
     evidence, action_entry = record_investigation(payload.evidence_type)
     new_severity = apply_investigation_branch(
@@ -54,7 +62,7 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
         current_severity=incident["severity"],
         incident_created_at=incident["created_at"],
         checked_at=evidence["revealed_at"],
-        scenario_id=incident.get("scenario_id"),
+        scenario_id=incident["scenario_id"],
     )
 
     await incidents_collection.update_one(
@@ -64,7 +72,7 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
             "$set": {"severity": new_severity, "updated_at": evidence["revealed_at"]},
         },
     )
-    updated = await _get_incident_or_404(incident_id)
+    updated = await _get_incident_or_404(incident_id, current_user_id)
 
     # AI Commander announces the development to anyone watching this
     # incident's WebSocket -- this is the "live incident" feel from the
@@ -93,8 +101,12 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
 
 
 @router.post("/{incident_id}/decide", response_model=IncidentResponse)
-async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def decide_incident(
+    incident_id: str,
+    payload: DecideRequest,
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
 
     action_entry, new_state = record_decision(payload.decision, payload.notes)
     await incidents_collection.update_one(
@@ -113,16 +125,21 @@ async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
         incident.get("user_id"),
         payload.decision,
     )
-    return await _get_incident_or_404(incident_id)
+    return await _get_incident_or_404(incident_id, current_user_id)
 
 
 @router.post("/{incident_id}/hint")
-async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def hint_incident(
+    incident_id: str,
+    payload: HintRequest,
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
     action_history = [entry["action"] for entry in incident.get("action_log", [])]
 
     try:
-        hint = ai_bridge.mentor.provide_hint(
+        hint = await run_in_threadpool(
+            ai_bridge.mentor.provide_hint,
             user_question=payload.user_question,
             incident_context={
                 "scenario_id": incident.get("scenario_id"),
@@ -142,14 +159,19 @@ async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
 
 
 @router.post("/{incident_id}/complete", response_model=ScoreResponse)
-async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def complete_incident(
+    incident_id: str,
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
     scenario = await scenarios_collection.find_one({"scenario_id": incident["scenario_id"]})
     ideal_chain = (scenario or {}).get("ideal_reasoning_chain", [])
     actual_chain = build_actual_chain(incident.get("action_log", []))
 
     try:
-        result = ai_bridge.evaluator.evaluate(
+        result = await run_in_threadpool(
+            ai_bridge.evaluator.evaluate,
             ideal_chain=ideal_chain,
             actual_chain=actual_chain,
             final_severity=incident["severity"],
@@ -211,8 +233,10 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
 
 
 @router.get("/{incident_id}/report", response_model=ScoreResponse)
-async def get_report(incident_id: str) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def get_report(
+    incident_id: str, current_user_id: UUID = Depends(get_current_user_id)
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
     score = incident.get("score")
     if not score:
         raise HTTPException(

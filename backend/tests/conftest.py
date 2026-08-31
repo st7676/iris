@@ -23,25 +23,12 @@ SILENT_LOGIN_SCENARIO = {
     ],
 }
 
-INSIDER_THREAT_SCENARIO = {
-    "scenario_id": "insider_threat_v1",
-    "title": "Insider Threat",
-    "initial_severity": "medium",
-    "initial_alert_message": "Departing employee accessed sensitive files outside business hours.",
-    "ideal_reasoning_chain": [
-        {"step": 1, "action": "check_hr_status", "rationale": "Confirm offboarding status first"},
-        {"step": 2, "action": "check_file_access_logs", "rationale": "Identify what was accessed"},
-        {"step": 3, "action": "check_usb_device_logs", "rationale": "Check for data exfiltration via USB"},
-        {"step": 4, "action": "revoke_access", "rationale": "Contain by revoking access immediately"},
-    ],
-}
-
-
 @pytest.fixture
 def mongo_db(monkeypatch):
     import app.db.mongodb as mongodb_module
     import app.main as main_module
     from app.api.routes import incidents, scenarios, users
+    from app.db.init_db import INSIDER_THREAT_SCENARIO
 
     mock_db = AsyncMongoMockClient()["iris_test"]
 
@@ -129,6 +116,22 @@ def postgres_db():
     app.dependency_overrides[get_db] = override_get_db
     yield TestingSessionLocal
     app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """
+    /register and /login are rate-limited per-IP (see app/core/rate_limit.py)
+    to block brute-force/spam. slowapi's in-memory storage persists across
+    the whole pytest run otherwise -- every test's TestClient looks like the
+    same "IP" to it, so tests that register several users (a normal thing to
+    do in this suite) would start tripping the limiter well before hitting
+    any real bug. Reset before each test so the limit only ever applies
+    within a single test's own requests.
+    """
+    from app.core.rate_limit import limiter
+
+    limiter.reset()
 
 
 @pytest.fixture

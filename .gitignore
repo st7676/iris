@@ -4,3 +4,8 @@ __pycache__/
 .venv
 env/
 venv/
+
+# Local-machine-specific Docker overrides (e.g. a locally trusted TLS
+# interception CA) -- never portable to another developer's machine.
+backend/.local/
+backend/docker-compose.override.yml

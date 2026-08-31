@@ -25,9 +25,9 @@ INCIDENT_CONTEXT = {
 }
 
 IDEAL_CHAIN = [
-    {"step": 1, "action": "check_hr_status", "rationale": "Confirm offboarding status first"},
-    {"step": 2, "action": "check_file_access_logs", "rationale": "Identify what was accessed"},
-    {"step": 3, "action": "check_usb_device_logs", "rationale": "Check for data exfiltration via USB"},
+    {"step": 1, "action": "check_file_access_logs", "rationale": "Identify what was accessed"},
+    {"step": 2, "action": "check_usb_device_logs", "rationale": "Check for data exfiltration via USB"},
+    {"step": 3, "action": "check_hr_status", "rationale": "Confirm the departure that motivated the access"},
     {"step": 4, "action": "revoke_access", "rationale": "Contain by revoking access immediately"},
 ]
 
@@ -47,12 +47,12 @@ def test_mentor_hint_does_not_leak_solution_for_insider_threat():
     hint = mentor.provide_hint(
         "What should I check next?",
         INCIDENT_CONTEXT,
-        ["check_hr_status"],
+        ["check_file_access_logs"],
     )
     print(f"Mentor: {hint}")
     assert len(hint) > 0
     # The hint must not just hand over the next ideal-chain action verbatim.
-    assert "check_file_access_logs" not in hint.lower().replace(" ", "_")
+    assert "check_usb_device_logs" not in hint.lower().replace(" ", "_")
 
 
 def test_evaluator_handles_insider_threat_action_names():

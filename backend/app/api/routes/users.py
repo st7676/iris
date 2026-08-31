@@ -3,23 +3,40 @@ import uuid
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, verify_password
+from app.core.rate_limit import limiter
+from app.core.security import (
+    TokenClaims,
+    create_access_token,
+    create_ws_ticket,
+    hash_password,
+    verify_password,
+)
 from app.db.mongodb import ephemeral_users_collection
-from app.db.postgres import SessionScore, User
-from app.deps import get_db
-from app.models.user import UserCreate, UserLogin, UserResponse
+from app.db.postgres import RevokedToken, SessionScore, User
+from app.deps import get_current_token, get_current_user_id, get_db
+from app.models.user import TokenResponse, UserCreate, UserLogin, UserResponse
 
 logger = logging.getLogger("iris.users")
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=201)
-async def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
+def _issue_token(user: User) -> TokenResponse:
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post("/register", response_model=TokenResponse, status_code=201)
+@limiter.limit("5/minute")
+async def register_user(
+    request: Request, payload: UserCreate, db: Session = Depends(get_db)
+) -> TokenResponse:
     try:
         existing = (
             db.query(User)
@@ -37,7 +54,7 @@ async def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> U
         db.add(user)
         db.commit()
         db.refresh(user)
-        return user
+        return _issue_token(user)
     except IntegrityError:
         # Two concurrent registrations for the same username/email both
         # passed the SELECT above, then one INSERT won and this one lost
@@ -77,43 +94,114 @@ async def register_user(payload: UserCreate, db: Session = Depends(get_db)) -> U
                 "created_at": created_at,
             }
         )
-        return User(
-            id=ephemeral_id,
-            username=payload.username,
-            email=payload.email,
-            hashed_password="",
-            created_at=created_at,
+        return _issue_token(
+            User(
+                id=ephemeral_id,
+                username=payload.username,
+                email=payload.email,
+                hashed_password="",
+                created_at=created_at,
+            )
         )
 
 
-@router.post("/login", response_model=UserResponse)
-def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> User:
+@router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def login_user(request: Request, payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
     user = db.query(User).filter(User.username == payload.username).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    return user
+    return _issue_token(user)
+
+
+@router.post("/logout", status_code=204)
+def logout_user(claims: TokenClaims = Depends(get_current_token), db: Session = Depends(get_db)) -> None:
+    """
+    Revokes the caller's current access token (see app/deps.py's
+    get_current_token / RevokedToken) so it stops working immediately,
+    instead of remaining valid until its natural expiry (up to
+    JWT_EXPIRE_MINUTES later). Only this one token is revoked -- other
+    active sessions for the same user are unaffected.
+    """
+    try:
+        db.add(RevokedToken(jti=claims.jti, user_id=claims.user_id, expires_at=claims.expires_at))
+        db.commit()
+    except IntegrityError:
+        # Already revoked (e.g. a duplicate logout call) -- that's already
+        # the desired end state, not an error.
+        db.rollback()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.warning(
+            "PostgreSQL unreachable -- could not persist logout revocation for jti=%s; "
+            "the token will keep working until it naturally expires.",
+            claims.jti,
+        )
+
+
+@router.post("/ws-ticket")
+def issue_ws_ticket(current_user_id: UUID = Depends(get_current_user_id)) -> dict:
+    """
+    Exchanges the caller's normal access token for a short-lived,
+    single-purpose ticket for the incident WebSocket handshake (see
+    app/core/security.py's create_ws_ticket -- browsers can't set an
+    Authorization header on a WebSocket connection, so the token has to
+    go in the URL, and a ticket that expires in seconds is far less
+    exposed there than a day-long access token would be).
+    """
+    return {"ws_ticket": create_ws_ticket(current_user_id)}
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: UUID, db: Session = Depends(get_db)) -> User:
-    user = db.get(User, user_id)
+def get_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> User:
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this user")
+    try:
+        user = db.get(User, user_id)
+    except SQLAlchemyError:
+        raise HTTPException(
+            status_code=503, detail="User data temporarily unavailable (PostgreSQL unreachable)"
+        )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
 @router.get("/{user_id}/history")
-def get_user_history(user_id: UUID, db: Session = Depends(get_db)) -> dict:
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+def get_user_history(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    if current_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this user's history")
 
-    scores = (
-        db.query(SessionScore)
-        .filter(SessionScore.user_id == user_id)
-        .order_by(SessionScore.completed_at.desc())
-        .all()
-    )
+    try:
+        user = db.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        scores = (
+            db.query(SessionScore)
+            .filter(SessionScore.user_id == user_id)
+            .order_by(SessionScore.completed_at.desc())
+            .all()
+        )
+    except SQLAlchemyError:
+        # Same graceful-degradation pattern as register_user's ephemeral-user
+        # fallback: an ephemeral (non-persisted) user has no real row to look
+        # up when Postgres is down -- treat "can't check" as "nothing
+        # recorded yet" rather than a hard failure, consistent with how
+        # register_user let this same user through in the first place.
+        logger.warning(
+            "PostgreSQL unreachable -- returning an empty history for %s", user_id
+        )
+        return {"user_id": str(user_id), "total_sessions": 0, "average_score": None, "sessions": []}
+
     return {
         "user_id": str(user_id),
         "total_sessions": len(scores),
