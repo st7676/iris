@@ -33,8 +33,18 @@ const IDLE_NUDGE_MS = 30_000
 export default function SimulationPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { incident, timeline, evidence, actionLog, startSimulation, investigateEvidence, decide, completeSimulation } =
-    useSimulationStore()
+  const {
+    incident,
+    timeline,
+    evidence,
+    actionLog,
+    hintsRemaining,
+    startSimulation,
+    investigateEvidence,
+    decide,
+    completeSimulation,
+    setHintsRemaining,
+  } = useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [toastVariant, setToastVariant] = useState<'success' | 'danger' | 'warning' | 'info'>('success')
   const [loading, setLoading] = useState(false)
@@ -176,17 +186,34 @@ export default function SimulationPage() {
 
   const handleGetHint = async () => {
     if (!incident) return
+    if (hintsRemaining <= 0) return
     try {
       const res = await fetch(`${API_BASE}/incidents/${incident.incidentId}/hint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ user_question: 'איזו פעולה כדאי לי לעשות הבא?' }),
       })
+      // Hints are capped server-side (429 once the limit is reached) --
+      // sync the displayed count down to 0 even if the client's local
+      // count somehow drifted from the server's.
+      if (res.status === 429) {
+        setHintsRemaining(0)
+        playError()
+        setToastVariant('warning')
+        setToastMessage('לא נשארו לך רמזים לאירוע הזה — הפעם תצטרך להסתדר לבד.')
+        setTimeout(() => setToastMessage(null), 4000)
+        return
+      }
       if (!res.ok) throw new Error('Failed to get hint')
       const data = await res.json()
+      setHintsRemaining(data.hints_remaining ?? hintsRemaining - 1)
       playChime()
       setToastVariant('info')
-      setToastMessage(`AI Mentor: ${data.hint}`)
+      const remainingNote =
+        data.hints_remaining === 0
+          ? ' (זה היה הרמז האחרון שלך)'
+          : ` (נותרו ${data.hints_remaining} רמזים)`
+      setToastMessage(`AI Mentor: ${data.hint}${remainingNote}`)
       setTimeout(() => setToastMessage(null), 5000)
     } catch (error) {
       console.error('Failed to get hint:', error)
@@ -243,7 +270,12 @@ export default function SimulationPage() {
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ aspectRatio: '1535 / 1024', minWidth: '100vw', minHeight: '100vh' }}
       >
-        <DeskScene actions={hotspotActions} onSelect={handleHotspotSelect} disabled={loading} />
+        <DeskScene
+          actions={hotspotActions}
+          onSelect={handleHotspotSelect}
+          disabled={loading}
+          severity={incident.severity}
+        />
       </div>
 
       {/* Top HUD strip -- translucent, over the scene, not pushing it down. */}
@@ -331,15 +363,19 @@ export default function SimulationPage() {
       {/* Floating HUD actions, anchored to the scene's corners. */}
       <button
         onClick={handleGetHint}
-        disabled={loading}
+        disabled={loading || hintsRemaining <= 0}
         className="hud-frame absolute bottom-4 left-4 z-20 max-w-xs rounded border-2 border-accent-info bg-bg-primary/85 p-3 text-left backdrop-blur-sm transition-all hover:bg-accent-info/20 hover:shadow-[0_0_20px_rgb(var(--glow-info)/0.4)] disabled:cursor-not-allowed disabled:opacity-50"
         style={{ ['--hud-color' as string]: 'var(--color-accent-info)' }}
       >
         <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-info">
           <IconBulb className="shrink-0" />
-          Ask Your Mentor for a Hint
+          Ask Your Mentor for a Hint ({hintsRemaining} left)
         </p>
-        <p className="mt-1 text-[11px] text-text-secondary">Stuck? Get a nudge — never the answer itself.</p>
+        <p className="mt-1 text-[11px] text-text-secondary">
+          {hintsRemaining > 0
+            ? 'Stuck? Get a nudge — costs points off your final score.'
+            : 'No hints left for this incident.'}
+        </p>
       </button>
 
       <div className="absolute bottom-4 right-4 z-20">

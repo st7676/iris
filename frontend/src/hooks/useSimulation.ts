@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { API_BASE } from '../lib/constants'
+import { API_BASE, MAX_HINTS_PER_INCIDENT } from '../lib/constants'
 import { DEFAULT_SCENARIO_ID, SCENARIOS, type EvidenceDetails } from '../lib/scenarios'
 
 const STORAGE_KEY = 'iris_user_id'
@@ -173,12 +173,19 @@ interface SimulationState {
   completed: boolean
   userId: string | null
   token: string | null
+  // Hints aren't free anymore (backend caps them at MAX_HINTS_PER_INCIDENT
+  // and docks score per hint) -- this tracks how many are left so the UI
+  // can show/disable accordingly. Reset on every new incident; updated from
+  // the server's response after each successful hint, which is always the
+  // source of truth.
+  hintsRemaining: number
   login: (username: string, password: string, isRegister?: boolean) => Promise<void>
   logout: () => void
   startSimulation: (scenarioId?: string) => Promise<void>
   investigateEvidence: (label: string) => void
   decide: (label: string) => void
   completeSimulation: () => void
+  setHintsRemaining: (remaining: number) => void
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -189,6 +196,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   completed: false,
   userId: getStoredUserId(),
   token: getStoredToken(),
+  hintsRemaining: MAX_HINTS_PER_INCIDENT,
 
   login: async (username: string, password: string, isRegister = false) => {
     const data = isRegister
@@ -240,6 +248,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         evidence: [],
         actionLog: [],
         completed: false,
+        hintsRemaining: MAX_HINTS_PER_INCIDENT,
       })
     } catch (error) {
       console.error('Failed to start simulation:', error)
@@ -255,10 +264,13 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         evidence: [],
         actionLog: [],
         completed: false,
+        hintsRemaining: MAX_HINTS_PER_INCIDENT,
       })
       throw error
     }
   },
+
+  setHintsRemaining: (remaining: number) => set({ hintsRemaining: remaining }),
 
   investigateEvidence: async (label: string) => {
     const state = useSimulationStore.getState()

@@ -17,6 +17,7 @@ import { useState } from 'react'
 // own steady, milder version of the same filter so the desk still shows
 // what's been checked without needing to hover.
 export type HotspotSlot = 'monitor-left' | 'monitor-center' | 'monitor-right' | 'phone' | 'folder'
+export type SceneSeverity = 'low' | 'medium' | 'high' | 'critical'
 
 export interface HotspotAction {
   slot: HotspotSlot
@@ -60,10 +61,25 @@ const SLOT_KIND: Record<HotspotSlot, 'info' | 'warm'> = {
   folder: 'info',
 }
 
+// How strongly the room's ambient red wash reads at each severity -- the
+// desk itself used to be static regardless of severity (only the SOCHeader
+// badge/timer reacted), so LOW and CRITICAL looked identical except for a
+// label. Kept subtle even at the top end: this washes the room, it
+// doesn't repaint it -- the illustration underneath should stay readable.
+const SEVERITY_TINT_OPACITY: Record<SceneSeverity, number> = {
+  low: 0,
+  medium: 0.08,
+  high: 0.17,
+  critical: 0.27,
+}
+
 interface DeskSceneProps {
   actions: HotspotAction[]
   onSelect: (action: HotspotAction) => void
   disabled?: boolean
+  // Optional: the room reads as static (no tint) when omitted, same as
+  // before this prop existed.
+  severity?: SceneSeverity
   // Sizing is the parent's call -- SimulationPage locks a 1535:1024 frame
   // to the viewport (full-bleed) so this same component and the same
   // hotspot percentages work whether it's filling the whole screen or
@@ -71,13 +87,13 @@ interface DeskSceneProps {
   className?: string
 }
 
-export default function DeskScene({ actions, onSelect, disabled, className }: DeskSceneProps) {
+export default function DeskScene({ actions, onSelect, disabled, severity, className }: DeskSceneProps) {
   const [hovered, setHovered] = useState<HotspotSlot | null>(null)
   const revealed = new Set(actions.filter((a) => a.revealed).map((a) => a.slot))
 
   return (
     <div className={className ?? 'relative h-full w-full overflow-hidden'}>
-      <DeskSceneArt hovered={hovered} revealed={revealed} />
+      <DeskSceneArt hovered={hovered} revealed={revealed} severity={severity ?? 'low'} />
 
       {actions.map((action) => {
         const pos = HOTSPOT_POSITION[action.slot]
@@ -130,6 +146,7 @@ const SCENE_SCALE = 1535 / 1600
 interface DeskSceneArtProps {
   hovered: HotspotSlot | null
   revealed: Set<HotspotSlot>
+  severity: SceneSeverity
 }
 
 // Filter style for one interactive object: hover wins over revealed,
@@ -146,7 +163,8 @@ function slotStyle(slot: HotspotSlot, hovered: HotspotSlot | null, revealed: Set
 // readable. A faithful port of the reference room illustration -- CCTV
 // wall, evidence corkboard, server rack, monitor cluster and desk
 // clutter -- at SCENE_SCALE, not a redrawn approximation.
-function DeskSceneArt({ hovered, revealed }: DeskSceneArtProps) {
+function DeskSceneArt({ hovered, revealed, severity }: DeskSceneArtProps) {
+  const tintOpacity = SEVERITY_TINT_OPACITY[severity]
   return (
     <svg
       viewBox="0 0 1535 1024"
@@ -205,6 +223,14 @@ function DeskSceneArt({ hovered, revealed }: DeskSceneArtProps) {
         <radialGradient id="vignette" cx="50%" cy="45%" r="75%">
           <stop offset="55%" stopColor="rgba(0,0,0,0)" />
           <stop offset="100%" stopColor="rgba(0,0,0,0.55)" />
+        </radialGradient>
+        {/* Ambient severity wash -- same radial-bleed-from-the-edges shape
+            as vignette, just red instead of black, so it reads as the
+            room's own lighting shifting rather than a UI layer stamped on
+            top. */}
+        <radialGradient id="severityBleed" cx="50%" cy="42%" r="80%">
+          <stop offset="35%" stopColor="rgba(255,56,96,0)" />
+          <stop offset="100%" stopColor="rgba(255,56,96,0.9)" />
         </radialGradient>
         {/* Bounds the "live" scrolling code lines on the center monitor so
             their animated width never draws outside the screen bezel. */}
@@ -568,6 +594,35 @@ function DeskSceneArt({ hovered, revealed }: DeskSceneArtProps) {
       {/* vignette + film grain, tying the whole illustration together */}
       <rect x="0" y="0" width="1535" height="1024" fill="url(#vignette)" pointerEvents="none" />
       <rect x="0" y="0" width="1535" height="1024" filter="url(#grain)" opacity="0.5" pointerEvents="none" />
+
+      {/* Severity wash -- fades in/out over 700ms as severity changes, so
+          an escalation reads as the room's lighting shifting underneath
+          you rather than popping. Only CRITICAL adds a slow pulse on top
+          of the base tint via a CSS keyframe animation (kept separate from
+          the SMIL <animate> tags used elsewhere in this file, e.g. the CCTV
+          bank's blinking lights, since a CSS `animation` and a `style`-set
+          `opacity` compose predictably while an `animation` and a SMIL
+          `<animate>` fighting over the same attribute don't) -- deliberately
+          gentle, this is pressure, not a strobe. */}
+      <style>{`
+        @keyframes iris-severity-critical-pulse {
+          0%, 100% { opacity: ${SEVERITY_TINT_OPACITY.critical}; }
+          50% { opacity: ${SEVERITY_TINT_OPACITY.critical * 1.5}; }
+        }
+      `}</style>
+      <rect
+        x="0"
+        y="0"
+        width="1535"
+        height="1024"
+        fill="url(#severityBleed)"
+        pointerEvents="none"
+        style={
+          severity === 'critical'
+            ? { animation: 'iris-severity-critical-pulse 2.4s ease-in-out infinite' }
+            : { opacity: tintOpacity, transition: 'opacity 700ms ease' }
+        }
+      />
     </svg>
   )
 }
