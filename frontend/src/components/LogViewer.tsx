@@ -11,7 +11,7 @@ interface LogViewerProps {
 
 export default function LogViewer({ logs }: LogViewerProps) {
   return (
-    <table className="w-full text-xs font-mono border border-border-default">
+    <table className="w-full text-xs font-mono">
       <thead>
         <tr className="bg-bg-tertiary text-accent-success uppercase text-left">
           <th className="px-2 py-1">Time</th>

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { API_BASE } from '../lib/constants'
-import { DEFAULT_SCENARIO_ID, SCENARIOS } from '../lib/scenarios'
+import { DEFAULT_SCENARIO_ID, SCENARIOS, type EvidenceDetails } from '../lib/scenarios'
 
 const STORAGE_KEY = 'iris_user_id'
 const TOKEN_STORAGE_KEY = 'iris_access_token'
@@ -135,7 +135,12 @@ async function apiDecide(incidentId: string, scenarioId: string, label: string) 
 interface Incident {
   incidentId: string
   scenarioId: string
-  severity: 'low' | 'medium' | 'high'
+  // 'critical' is reachable once the breach deadline passes (see
+  // backend's branching_logic.py's escalate_if_deadline_passed) -- it
+  // used to be missing here even though the backend enum has always had
+  // it, so a real critical response would have hit an undefined color
+  // lookup in SOCHeader.
+  severity: 'low' | 'medium' | 'high' | 'critical'
   alertMessage: string
   startedAt: string
 }
@@ -152,6 +157,7 @@ interface Evidence {
   description: string
   revealedAtStep: number
   timestamp: string
+  details: EvidenceDetails
 }
 
 interface ActionLogEntry {
@@ -188,6 +194,14 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     const data = isRegister
       ? await registerUser(username, password)
       : await loginUser(username, password)
+    // The API contract is {access_token, user: {id, ...}} (see backend's
+    // TokenResponse) -- but a stale/mismatched backend or a future API
+    // change could send something else. Fail with a message the user can
+    // act on instead of a raw "Cannot read properties of undefined" from
+    // reaching into data.user.id.
+    if (!data?.access_token || !data?.user?.id) {
+      throw new Error('Unexpected response from server -- please try again')
+    }
     storeUserId(data.user.id)
     storeToken(data.access_token)
     set({ userId: data.user.id, token: data.access_token })
@@ -251,7 +265,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     if (!state.incident) throw new Error('No incident in progress')
 
     try {
-      await apiInvestigate(state.incident.incidentId, state.incident.scenarioId, label)
+      const updated = await apiInvestigate(state.incident.incidentId, state.incident.scenarioId, label)
 
       const alreadyInTimeline = state.timeline.some((step) => step.label === label)
       const newEvidence = SCENARIOS[state.incident.scenarioId]?.evidenceLibrary[label]
@@ -261,7 +275,14 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         step.status === 'current' ? { ...step, status: 'done' as const } : step
       )
 
+      // The backend re-evaluates severity on every investigate (branching_logic.py)
+      // and returns the current value -- previously ignored here, so the
+      // header's severity badge stayed frozen at whatever it was when the
+      // incident started, even as the case actively escalated server-side.
+      const nextSeverity: Incident['severity'] = updated.severity ?? state.incident.severity
+
       set({
+        incident: { ...state.incident, severity: nextSeverity },
         timeline: alreadyInTimeline
           ? updatedTimeline
           : [...updatedTimeline, { label, status: 'current' as const }],
@@ -280,7 +301,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     if (!state.incident) throw new Error('No incident in progress')
 
     try {
-      await apiDecide(state.incident.incidentId, state.incident.scenarioId, label)
+      const updated = await apiDecide(state.incident.incidentId, state.incident.scenarioId, label)
 
       const alreadyInTimeline = state.timeline.some((step) => step.label === label)
       const newEvidence = SCENARIOS[state.incident.scenarioId]?.evidenceLibrary[label]
@@ -290,7 +311,10 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         step.status === 'current' ? { ...step, status: 'done' as const } : step
       )
 
+      const nextSeverity: Incident['severity'] = updated.severity ?? state.incident.severity
+
       set({
+        incident: { ...state.incident, severity: nextSeverity },
         timeline: alreadyInTimeline
           ? updatedTimeline
           : [...updatedTimeline, { label, status: 'current' as const }],

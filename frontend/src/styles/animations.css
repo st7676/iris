@@ -35,3 +35,55 @@
 .status-active {
   animation: pulse 1.5s infinite;
 }
+
+/*
+ * Scene hotspots breathe by fading, not by pulsing a box-shadow: a
+ * shadow is drawn from the element's border-box, so on a soft radial
+ * glow it reappears as exactly the hard-edged rectangle the glow exists
+ * to avoid. Opacity has no geometry of its own, so the light keeps the
+ * gradient's shape.
+ */
+@keyframes glowBreathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.glow-breathe {
+  animation: glowBreathe 3.2s ease-in-out infinite;
+}
+
+@keyframes severityEscalate {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+.severity-escalate {
+  animation: severityEscalate 0.5s ease-in-out;
+  box-shadow: 0 0 14px currentColor;
+}
+
+/* Timer's critical tier (see Timer.tsx) pulses noticeably faster than the
+   default `pulse` above -- the point is to feel more urgent the longer an
+   incident runs, not just switch to a static red at some threshold. */
+@keyframes timerCriticalPulse {
+  0%, 100% { box-shadow: 0 0 8px currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 22px currentColor; opacity: 0.75; }
+}
+.timer-critical {
+  animation: timerCriticalPulse 0.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-breathe {
+    animation: none;
+    opacity: 0.6;
+  }
+  .severity-escalate {
+    animation: none;
+    box-shadow: 0 0 14px currentColor;
+  }
+  .timer-critical {
+    animation: none;
+  }
+}

@@ -4,6 +4,14 @@ from app.models.schemas import Severity
 
 QUICK_CHECK_THRESHOLD_SECONDS = 60
 
+# Past this many seconds from incident creation, the attacker is treated as
+# having finished whatever they came for, regardless of what the analyst
+# does next -- there was previously no deadline at all (the on-screen Timer
+# just counted up forever), so stalling had no in-story consequence. This
+# is deliberately not tunable per-scenario yet: same escape-room-style
+# pressure for both scenarios until there's a reason to vary it.
+BREACH_DEADLINE_SECONDS = 600  # 10 minutes
+
 _SEVERITY_ORDER = [Severity.low, Severity.medium, Severity.high, Severity.critical]
 
 # The evidence type that, if checked first and quickly, indicates the player
@@ -31,6 +39,27 @@ def _shift_severity(current: str, steps: int) -> str:
     return _SEVERITY_ORDER[new_index].value
 
 
+def is_breach_deadline_passed(incident_created_at: datetime, now: datetime) -> bool:
+    elapsed = (_to_utc_aware(now) - _to_utc_aware(incident_created_at)).total_seconds()
+    return elapsed >= BREACH_DEADLINE_SECONDS
+
+
+def escalate_if_deadline_passed(
+    current_severity: str, incident_created_at: datetime, now: datetime
+) -> str:
+    """Force severity to critical once the breach deadline has passed.
+
+    Irreversible on purpose: once the attacker has "finished," no later
+    correct action un-does that, same as a real incident that's already
+    happened. Called from every incident-mutating endpoint (investigate,
+    decide, complete), not just investigate, so stalling on /decide or
+    jumping straight to /complete after the deadline can't dodge it.
+    """
+    if is_breach_deadline_passed(incident_created_at, now):
+        return Severity.critical.value
+    return current_severity
+
+
 def apply_investigation_branch(
     evidence_type: str,
     current_severity: str,
@@ -38,6 +67,9 @@ def apply_investigation_branch(
     checked_at: datetime,
     scenario_id: str,
 ) -> str:
+    if is_breach_deadline_passed(incident_created_at, checked_at):
+        return Severity.critical.value
+
     elapsed = (
         _to_utc_aware(checked_at) - _to_utc_aware(incident_created_at)
     ).total_seconds()

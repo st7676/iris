@@ -1,4 +1,6 @@
-﻿interface ModalProps {
+﻿import { IconX } from './icons'
+
+interface ModalProps {
   title: string
   children: React.ReactNode
   onClose: () => void
@@ -14,7 +16,7 @@ export default function Modal({ title, children, onClose }: ModalProps) {
             onClick={onClose}
             className="text-text-secondary hover:text-text-primary transition-colors"
           >
-            ✕
+            <IconX />
           </button>
         </div>
         <div className="text-sm text-text-primary">{children}</div>

@@ -19,7 +19,7 @@ from app.models.incident import (
     InvestigateRequest,
     ScoreResponse,
 )
-from app.simulation.branching_logic import apply_investigation_branch
+from app.simulation.branching_logic import apply_investigation_branch, escalate_if_deadline_passed
 from app.simulation.engine import (
     build_actual_chain,
     build_ai_commander_update,
@@ -108,6 +108,12 @@ async def decide_incident(
 ) -> dict:
     incident = await _get_incident_or_404(incident_id, current_user_id)
 
+    now = datetime.now(timezone.utc)
+    # decide() never recomputed severity at all before this -- only
+    # investigate() did (via apply_investigation_branch) -- so stalling
+    # here past the breach deadline had no consequence either.
+    new_severity = escalate_if_deadline_passed(incident["severity"], incident["created_at"], now)
+
     action_entry, new_state = record_decision(payload.decision, payload.notes)
     await incidents_collection.update_one(
         {"incident_id": incident_id},
@@ -115,7 +121,8 @@ async def decide_incident(
             "$push": {"action_log": action_entry},
             "$set": {
                 "current_state": new_state,
-                "updated_at": datetime.now(timezone.utc),
+                "severity": new_severity,
+                "updated_at": now,
             },
         },
     )
@@ -169,12 +176,19 @@ async def complete_incident(
     ideal_chain = (scenario or {}).get("ideal_reasoning_chain", [])
     actual_chain = build_actual_chain(incident.get("action_log", []))
 
+    # Covers completing straight from an idle desk scene with no further
+    # investigate/decide call in between -- those endpoints only see the
+    # deadline if the analyst actually acts again after it passes.
+    final_severity = escalate_if_deadline_passed(
+        incident["severity"], incident["created_at"], datetime.now(timezone.utc)
+    )
+
     try:
         result = await run_in_threadpool(
             ai_bridge.evaluator.evaluate,
             ideal_chain=ideal_chain,
             actual_chain=actual_chain,
-            final_severity=incident["severity"],
+            final_severity=final_severity,
         )
     except Exception:
         logger.error("AI Evaluator call failed for incident %s", incident_id, exc_info=True)
@@ -189,6 +203,20 @@ async def complete_incident(
     }
     overall_score = round(sum(categories.values()) / len(categories))
 
+    # A narrative outcome, independent of the numeric score: two analysts
+    # can both score 70% and land in very different stories -- one who
+    # contained a low-severity incident cleanly, one who let it go
+    # critical but still described their (wrong) actions coherently. The
+    # score grades *how well you played*; this says *what happened to the
+    # company*.
+    if final_severity == "critical":
+        outcome = "breach_successful"
+    elif final_severity == "low":
+        outcome = "contained"
+    else:
+        outcome = "contained_with_damage"
+    resolved = outcome != "breach_successful"
+
     score_doc = {
         "score": overall_score,
         "categories": categories,
@@ -197,11 +225,21 @@ async def complete_incident(
         "feedback": result.get("feedback"),
         "strengths": result.get("strengths"),
         "improvements": result.get("improvements"),
+        "final_severity": final_severity,
+        "outcome": outcome,
+        "resolved": resolved,
     }
 
     await incidents_collection.update_one(
         {"incident_id": incident_id},
-        {"$set": {"status": "completed", "score": score_doc, "updated_at": datetime.now(timezone.utc)}},
+        {
+            "$set": {
+                "status": "completed",
+                "severity": final_severity,
+                "score": score_doc,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
     )
 
     try:
