@@ -21,6 +21,8 @@ from app.models.incident import (
 )
 from app.simulation.branching_logic import apply_investigation_branch, escalate_if_deadline_passed
 from app.simulation.engine import (
+    HINT_SCORE_PENALTY,
+    MAX_HINTS_PER_INCIDENT,
     build_actual_chain,
     build_ai_commander_update,
     record_decision,
@@ -127,13 +129,31 @@ async def decide_incident(
             },
         },
     )
+    updated = await _get_incident_or_404(incident_id, current_user_id)
+
+    # Mirrors investigate_incident's AI Commander broadcast: a decision is
+    # exactly the moment the "live incident" narrative should react most --
+    # previously only investigate() triggered a Commander update, so the
+    # live feed went silent at the most consequential action in the whole
+    # flow. Same off-event-loop + best-effort handling: a broadcast failure
+    # shouldn't fail the decide request, the decision was already recorded.
+    try:
+        ai_update = await run_in_threadpool(
+            build_ai_commander_update, updated, payload.decision
+        )
+        await manager.broadcast(incident_id, ai_update)
+    except Exception:
+        logger.error(
+            "AI Commander broadcast failed for incident %s", incident_id, exc_info=True
+        )
+
     logger.info(
         "incident_id=%s user_id=%s action=decide decision=%s",
         incident_id,
         incident.get("user_id"),
         payload.decision,
     )
-    return await _get_incident_or_404(incident_id, current_user_id)
+    return updated
 
 
 @router.post("/{incident_id}/hint")
@@ -144,6 +164,17 @@ async def hint_incident(
     x_language: str = Header(default="en", alias="X-Language"),
 ) -> dict:
     incident = await _get_incident_or_404(incident_id, current_user_id)
+
+    hints_used = incident.get("hints_used", 0)
+    if hints_used >= MAX_HINTS_PER_INCIDENT:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"No hints remaining for this incident (limit: {MAX_HINTS_PER_INCIDENT}). "
+                "You'll have to work this one out yourself."
+            ),
+        )
+
     action_history = [entry["action"] for entry in incident.get("action_log", [])]
 
     try:
@@ -162,10 +193,23 @@ async def hint_incident(
         raise HTTPException(
             status_code=503, detail="AI Mentor is temporarily unavailable, try again shortly"
         )
-    logger.info(
-        "incident_id=%s user_id=%s action=hint", incident_id, incident.get("user_id")
+
+    hints_used += 1
+    await incidents_collection.update_one(
+        {"incident_id": incident_id}, {"$set": {"hints_used": hints_used}}
     )
-    return {"hint": hint}
+
+    logger.info(
+        "incident_id=%s user_id=%s action=hint hints_used=%s",
+        incident_id,
+        incident.get("user_id"),
+        hints_used,
+    )
+    return {
+        "hint": hint,
+        "hints_used": hints_used,
+        "hints_remaining": MAX_HINTS_PER_INCIDENT - hints_used,
+    }
 
 
 @router.post("/{incident_id}/complete", response_model=ScoreResponse)
@@ -206,7 +250,14 @@ async def complete_incident(
         "decision_score": result.get("decision_score", 0),
         "response_score": result.get("response_score", 0),
     }
-    overall_score = round(sum(categories.values()) / len(categories))
+    # Hints cost points -- each one used docks HINT_SCORE_PENALTY from the
+    # final score (see MAX_HINTS_PER_INCIDENT/HINT_SCORE_PENALTY), so
+    # leaning on the Mentor is a real tradeoff, not a free action. Applied
+    # to the overall score, not the AI Evaluator's per-category scores,
+    # since those should keep reflecting the analyst's raw performance.
+    hints_used = incident.get("hints_used", 0)
+    hint_penalty = hints_used * HINT_SCORE_PENALTY
+    overall_score = max(0, round(sum(categories.values()) / len(categories)) - hint_penalty)
 
     # A narrative outcome, independent of the numeric score: two analysts
     # can both score 70% and land in very different stories -- one who
@@ -233,6 +284,8 @@ async def complete_incident(
         "final_severity": final_severity,
         "outcome": outcome,
         "resolved": resolved,
+        "hints_used": hints_used,
+        "hint_penalty": hint_penalty,
     }
 
     await incidents_collection.update_one(

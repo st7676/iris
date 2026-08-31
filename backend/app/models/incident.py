@@ -84,6 +84,7 @@ class IncidentResponse(BaseModel):
     current_state: str
     evidence_revealed: List[EvidenceItem] = []
     action_log: List[ActionLogEntry] = []
+    hints_used: int = 0
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -165,6 +166,8 @@ class ScoreResponse(BaseModel):
     final_severity: Severity = Severity.medium
     outcome: str = "contained_with_damage"
     resolved: bool = True
+    hints_used: int = 0
+    hint_penalty: int = 0
 
     model_config = ConfigDict(
         json_schema_extra={

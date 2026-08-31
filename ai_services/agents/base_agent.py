@@ -10,11 +10,19 @@ class BaseAgent(ABC):
         self.client = OpenAIClient()
 
     @abstractmethod
-    def get_system_prompt(self) -> str:
-        pass
+    def get_system_prompt(self, scenario_id: str | None = None) -> str:
+        """scenario_id lets a subclass scope its system prompt to only the
+        active scenario's vocabulary instead of sending every scenario's
+        vocab on every call. Agents that don't have per-scenario content
+        (Mentor, Evaluator) just ignore it."""
 
-    def call(self, user_message: str, language: str = DEFAULT_LANGUAGE) -> str:
-        system_prompt = self.get_system_prompt() + "\n\n" + language_instruction(language)
+    def call(
+        self,
+        user_message: str,
+        scenario_id: str | None = None,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> str:
+        system_prompt = self.get_system_prompt(scenario_id) + "\n\n" + language_instruction(language)
         response, usage = self.client.call(system_prompt, user_message)
         log_ai_call(
             self.__class__.__name__,

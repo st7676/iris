@@ -10,6 +10,7 @@ openai
 python-dotenv
 python-jose
 slowapi
+redis
 pytest
 httpx
 mongomock_motor

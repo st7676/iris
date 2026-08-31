@@ -96,4 +96,137 @@ describe('useSimulation store', () => {
       alertMessage: 'Suspicious login detected',
     })
   })
+
+  describe('investigateEvidence', () => {
+    beforeEach(() => {
+      useSimulationStore.setState({
+        incident: {
+          incidentId: 'INC-42',
+          scenarioId: 'silent_login_v1',
+          severity: 'medium',
+          alertMessage: 'Unusual login activity detected',
+          startedAt: '2026-08-31T00:00:00Z',
+        },
+        timeline: [{ label: 'Check Email Logs', status: 'current' }],
+        evidence: [],
+        actionLog: [],
+      })
+    })
+
+    it('throws when there is no incident in progress', async () => {
+      useSimulationStore.setState({ incident: null })
+      await expect(useSimulationStore.getState().investigateEvidence('Check Email Logs')).rejects.toThrow(
+        'No incident in progress'
+      )
+    })
+
+    it('sends the evidence_type resolved from the scenario config, not the raw label', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ severity: 'medium' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      await useSimulationStore.getState().investigateEvidence('Check Email Logs')
+
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe('http://localhost:8000/api/incidents/INC-42/investigate')
+      expect(JSON.parse(init.body)).toEqual({ evidence_type: 'email_logs' })
+    })
+
+    it('marks the matching timeline step done, records revealed evidence and the action log, and syncs severity', async () => {
+      mockFetchOnce({ severity: 'high' })
+
+      await useSimulationStore.getState().investigateEvidence('Check Email Logs')
+
+      const state = useSimulationStore.getState()
+      expect(state.incident?.severity).toBe('high')
+      expect(state.timeline).toEqual([{ label: 'Check Email Logs', status: 'done' }])
+      expect(state.evidence).toHaveLength(1)
+      expect(state.evidence[0].id).toBe('email')
+      expect(state.actionLog).toEqual([{ label: 'Check Email Logs', type: 'investigate' }])
+    })
+
+    it('adds a new current step for a different action than the one currently in progress', async () => {
+      mockFetchOnce({ severity: 'medium' })
+
+      await useSimulationStore.getState().investigateEvidence('Check Auth Logs')
+
+      expect(useSimulationStore.getState().timeline).toEqual([
+        { label: 'Check Email Logs', status: 'done' },
+        { label: 'Check Auth Logs', status: 'current' },
+      ])
+    })
+
+    it('does not duplicate evidence already revealed by an earlier investigate call', async () => {
+      mockFetchOnce({ severity: 'medium' })
+      await useSimulationStore.getState().investigateEvidence('Check Email Logs')
+
+      mockFetchOnce({ severity: 'medium' })
+      await useSimulationStore.getState().investigateEvidence('Check Email Logs')
+
+      expect(useSimulationStore.getState().evidence).toHaveLength(1)
+    })
+
+    it('rejects and leaves state untouched when the API call fails', async () => {
+      mockFetchOnce({}, { ok: false, status: 500 })
+
+      await expect(useSimulationStore.getState().investigateEvidence('Check Email Logs')).rejects.toThrow(
+        'Investigate failed: 500'
+      )
+      expect(useSimulationStore.getState().actionLog).toEqual([])
+    })
+  })
+
+  describe('decide', () => {
+    beforeEach(() => {
+      useSimulationStore.setState({
+        incident: {
+          incidentId: 'INC-42',
+          scenarioId: 'silent_login_v1',
+          severity: 'high',
+          alertMessage: 'Unusual login activity detected',
+          startedAt: '2026-08-31T00:00:00Z',
+        },
+        timeline: [{ label: 'Reset Password + MFA', status: 'current' }],
+        evidence: [],
+        actionLog: [],
+      })
+    })
+
+    it('throws when there is no incident in progress', async () => {
+      useSimulationStore.setState({ incident: null })
+      await expect(useSimulationStore.getState().decide('Reset Password + MFA')).rejects.toThrow(
+        'No incident in progress'
+      )
+    })
+
+    it('sends the decision resolved from the scenario config and records the action log', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ severity: 'high' }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      await useSimulationStore.getState().decide('Reset Password + MFA')
+
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe('http://localhost:8000/api/incidents/INC-42/decide')
+      expect(JSON.parse(init.body)).toEqual({ decision: 'reset_password_mfa', notes: '' })
+      expect(useSimulationStore.getState().actionLog).toEqual([
+        { label: 'Reset Password + MFA', type: 'decide' },
+      ])
+    })
+
+    it('rejects and leaves state untouched when the API call fails', async () => {
+      mockFetchOnce({}, { ok: false, status: 500 })
+
+      await expect(useSimulationStore.getState().decide('Reset Password + MFA')).rejects.toThrow(
+        'Decide failed: 500'
+      )
+      expect(useSimulationStore.getState().actionLog).toEqual([])
+    })
+  })
 })
