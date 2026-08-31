@@ -31,10 +31,6 @@ export type EvidenceDetails =
       source: string
       meta?: { label: string; value: string }[]
       rows: { time: string; status: 'FAILED' | 'SUCCESS' | 'ACCESS' | 'CONNECT' | 'TRANSFER' | 'DISCONNECT'; detail: string }[]
-      // Path under /scenes for a generated photoreal close-up of this
-      // item (see evidence-views/PhotoLogView). Absent -> falls back to
-      // the CSS-drawn terminal look (LogView) until an image exists.
-      photo?: string
     }
   | {
       kind: 'record'
@@ -134,7 +130,6 @@ export const SCENARIOS: Record<string, ScenarioConfig> = {
         details: {
           kind: 'log',
           source: 'auth.log — SecureFlow SIEM',
-          photo: '/scenes/evidence_auth_logs_v1.png',
           meta: [
             { label: 'Source IP', value: '203.0.113.42' },
             { label: 'Location', value: 'Bucharest, RO' },

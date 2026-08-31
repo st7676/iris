@@ -1,20 +1,24 @@
+import json
+
 from agents.base_agent import BaseAgent
-from prompts.mentor import MENTOR_SYSTEM_PROMPT
+from prompts.mentor import MENTOR_SYSTEM_PROMPT, MENTOR_USER_PROMPT
 from utils.guardrails import sanitize_user_input
 
 
 class AIMentor(BaseAgent):
-    def get_system_prompt(self) -> str:
+    def get_system_prompt(self, scenario_id: str | None = None) -> str:
         return MENTOR_SYSTEM_PROMPT
 
-    def provide_hint(self, user_question: str, incident_context: dict, action_history: list) -> str:
+    def provide_hint(
+        self, user_question: str, incident_context: dict, action_history: list, language: str = "en"
+    ) -> str:
         """Provide a hint to guide the user."""
         safe_question = sanitize_user_input(user_question)
         history_str = " -> ".join(action_history)
-        context_str = str(incident_context)
-        prompt = MENTOR_SYSTEM_PROMPT.format(
+        context_str = json.dumps(incident_context, ensure_ascii=False)
+        prompt = MENTOR_USER_PROMPT.format(
             user_question=safe_question,
             incident_context=context_str,
             action_history=history_str,
         )
-        return self.call(prompt)
+        return self.call(prompt, scenario_id=incident_context.get("scenario_id"), language=language)

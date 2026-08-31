@@ -1,88 +1,136 @@
 @import "tailwindcss";
 
 /*
- * "Case File / Interrogation Room" theme -- a deliberate pivot away from
- * the earlier hacker-terminal/monospace-everything look, which read as a
- * dense dashboard rather than an escape room. Warm, dim-room palette +
- * a typewriter display font for headlines, clean sans for body copy,
- * evidence styled as physical pinned notes on cork.
+ * "Cold SOC" theme -- a deliberate pivot back to a dark, cool
+ * blue-black hacker-terminal palette (away from the warmer "Case File /
+ * Interrogation Room" look this file carried before), so every screen
+ * reads as one illustrated, monospace-driven investigation console
+ * instead of a paper case file.
  */
 @theme {
-  --color-bg-primary: #15100c;
-  --color-bg-secondary: #1f1811;
-  --color-bg-tertiary: #2b2116;
+  --color-bg-primary: #0a0e27;
+  --color-bg-secondary: #0f1335;
+  --color-bg-tertiary: #1a1f3a;
+  --color-bg-panel: #0c1030;
 
-  --color-text-primary: #ece3d3;
-  --color-text-secondary: #a89a83;
-  --color-text-muted: #6b5f4d;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #8890b5;
+  --color-text-muted: #555a7a;
 
-  --color-border-default: #3a2e20;
-  --color-border-highlight: #57452e;
+  --color-border-default: #232a4d;
+  --color-border-highlight: #3a4270;
 
-  --color-accent-success: #d9a441;
-  --color-accent-warning: #e07b3f;
-  --color-accent-danger: #d63b3b;
-  --color-accent-info: #4f8fbf;
-  --color-accent-neutral: #a89a83;
+  --color-accent-success: #2fbf71;
+  --color-accent-warning: #ff6b35;
+  --color-accent-danger: #ff3860;
+  --color-accent-info: #0099ff;
+  --color-accent-neutral: #a0a0a0;
+  --color-accent-gold: #ffb300;
 
   --color-cork: #6b4a2f;
-  --color-paper: #ede4cf;
-  --color-paper-text: #2b2116;
+  --color-paper: #f2ede0;
+  --color-paper-text: #1a1d2e;
 
   /* Darkened variants of the accent colors, for use as foreground
-     (text/border) on the light --color-paper background -- the plain
-     accent-* colors were tuned against the dark bg-primary and fall
-     short of WCAG AA (4.5:1) as foreground-on-paper. Each is the
-     lightest darkening of its accent-* counterpart that still clears
-     4.5:1 against --color-paper (#ede4cf), with a small margin. */
-  --color-paper-info: #356788;
-  --color-paper-danger: #b83030;
-  --color-paper-success: #7a5c24;
+     (text/border) on the light --color-paper background -- the neon
+     accent-* colors above are tuned for a dark bg and are far too light
+     (accent-success especially) to read as foreground-on-paper. Each is
+     a darkening of its accent-* counterpart that clears 4.5:1 against
+     --color-paper (#f2ede0). */
+  --color-paper-info: #0a5a94;
+  --color-paper-danger: #b8203f;
+  --color-paper-success: #1f7a44;
 
-  --font-display: 'Special Elite', 'Courier New', monospace;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Courier Prime', 'Fira Code', 'Courier New', monospace;
+  --font-display: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', monospace;
+  --font-sans: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', monospace;
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.375rem;
+
+  --animate-pulse-glow: pulse-glow 2.4s ease-in-out infinite;
+  --animate-scan: scan 3s linear infinite;
+  --animate-flicker: flicker 4s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.35s ease-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 191, 113, 0.35); }
+  50% { box-shadow: 0 0 22px 4px rgba(47, 191, 113, 0.25); }
+}
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes flicker {
+  0%, 96%, 100% { opacity: 1; }
+  97% { opacity: 0.82; }
+  98% { opacity: 1; }
+  99% { opacity: 0.88; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* RGB triples (not full colors) for glow/shadow effects, so every
    `shadow-[...]`/`text-shadow` call site references one definition
-   instead of re-deriving the same rgba() literal independently -- the
-   PR that introduced the warm palette above left these untokenized,
-   and two call sites (Timer.tsx, the Mentor-hint button) drifted out of
-   sync with the rest of the migrated palette as a direct result. Used
+   instead of re-deriving the same rgba() literal independently. Used
    as e.g. `shadow-[0_0_10px_rgb(var(--glow-danger)/0.4)]`. */
 :root {
-  --glow-success: 217 164 65;
-  --glow-danger: 214 59 59;
-  --glow-info: 79 143 191;
+  --glow-success: 47 191 113;
+  --glow-danger: 255 56 96;
+  --glow-info: 0 153 255;
 }
 
 body {
   background-color: var(--color-bg-primary);
-  /* Faint vignette, like a single desk lamp lighting a dim room, rather
-     than a flat terminal-black or a tech grid. */
-  background-image: radial-gradient(
-    ellipse at 50% -10%,
-    rgba(217, 164, 65, 0.08),
-    transparent 60%
-  );
+  /* Cool ambient bleed from the top, like a wall of monitors lighting a
+     dark room, rather than a single warm desk lamp. */
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0, 153, 255, 0.08), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(47, 191, 113, 0.05), transparent);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   line-height: 1.6;
 }
 
-/* Scoped to `.font-display` only (not a bare h1/h2/h3 selector) -- this
-   theme so far only redesigns HomePage, LoginPage, BriefingPage and
-   SimulationPage; a bare tag selector would also reskin every heading on
-   pages this pass never reviewed (Scoreboard, ReportPage, HistoryPage,
-   InstructorDashboardPage, PostMortemComparison, Modal), pairing the new
-   decorative font with those pages' still-unmigrated colors/spacing. */
+/* Scoped to `.font-display` only, kept for call sites that already use
+   it -- now points at the same monospace stack as the rest of the app,
+   since this theme is monospace-everything rather than mixing a
+   decorative display face with a separate body font. */
 .font-display {
   font-family: var(--font-display);
 }
 
 .briefing-glow {
-  text-shadow: 0 0 18px rgba(217, 164, 65, 0.5);
+  text-shadow: 0 0 18px rgba(0, 153, 255, 0.5);
+}
+
+.text-glow-success { text-shadow: 0 0 8px rgba(47, 191, 113, 0.55); }
+.text-glow-danger { text-shadow: 0 0 8px rgba(255, 56, 96, 0.55); }
+.text-glow-warning { text-shadow: 0 0 8px rgba(255, 107, 53, 0.55); }
+.text-glow-info { text-shadow: 0 0 8px rgba(0, 153, 255, 0.55); }
+
+/* Faint CRT scanline/grain texture for digital screen surfaces --
+   layer this over a dark panel to make it read as a monitor rather
+   than a flat rectangle. */
+.crt-noise {
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.015),
+    rgba(255, 255, 255, 0.015) 1px,
+    transparent 1px,
+    transparent 2px
+  );
 }
 
 ::-webkit-scrollbar {
@@ -96,8 +144,8 @@ body {
   border-radius: 4px;
 }
 
-/* HUD corner brackets -- kept, but now amber by default to match the
-   warmer palette (was neon green). */
+/* HUD corner brackets -- neon green by default, matching the cold
+   palette. */
 .hud-frame {
   position: relative;
   --hud-color: var(--color-accent-success);

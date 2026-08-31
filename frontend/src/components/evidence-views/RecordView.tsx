@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { IconUser, IconX } from '../common/icons'
 import type { EvidenceDetails } from '../../lib/scenarios'
 
 interface RecordViewProps {
@@ -10,14 +12,15 @@ interface RecordViewProps {
 // the case-folder cards), and a corner photo placeholder like a real HR
 // record or ID document would have.
 export default function RecordView({ details, onClose }: RecordViewProps) {
+  const { t } = useTranslation()
   return (
     <div className="relative w-full rounded bg-paper p-6 text-paper-text shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
       <button
         onClick={onClose}
         className="absolute right-3 top-3 text-paper-text/60 hover:text-paper-text transition-colors"
-        aria-label="Close"
+        aria-label={t('common.close')}
       >
-        ✕
+        <IconX />
       </button>
 
       <div className="mb-4 flex items-start justify-between gap-4 border-b-2 border-paper-text/20 pb-3">
@@ -25,8 +28,8 @@ export default function RecordView({ details, onClose }: RecordViewProps) {
           <p className="font-display text-sm uppercase tracking-wide">SecureFlow Technologies</p>
           <p className="text-xs text-paper-text/60">Personnel Record</p>
         </div>
-        <div className="flex h-16 w-14 shrink-0 items-center justify-center rounded border-2 border-paper-text/30 bg-black/10 text-2xl">
-          👤
+        <div className="flex h-16 w-14 shrink-0 items-center justify-center rounded border-2 border-paper-text/30 bg-black/10">
+          <IconUser size={28} />
         </div>
       </div>
 

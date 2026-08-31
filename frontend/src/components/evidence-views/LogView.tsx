@@ -21,7 +21,7 @@ const STATUS_COLOR: Record<string, string> = {
 export default function LogView({ details, onClose }: LogViewProps) {
   return (
     <AppWindowChrome title={details.source} onClose={onClose}>
-      <div className="bg-[#0c0906] p-4">
+      <div className="bg-bg-primary p-4">
         {details.meta && details.meta.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2 border-b border-border-default pb-3">
             {details.meta.map((m) => (

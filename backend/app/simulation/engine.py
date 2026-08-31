@@ -7,6 +7,20 @@ from app.core import ai_bridge
 from app.models.schemas import IncidentStatus, Severity
 from app.simulation.evidence import get_mock_evidence
 
+# Only 10,000 possible IDs per calendar year -- collisions become
+# non-trivial once a few hundred incidents exist in the same year (birthday
+# paradox). scenarios.start_scenario retries with a fresh ID a few times
+# on the resulting DuplicateKeyError before giving up.
+INCIDENT_ID_COLLISION_RETRIES = 5
+
+# Hints used to be free and unlimited -- asking the Mentor for help had no
+# in-game cost, so there was no reason not to spam it on every step. Capping
+# how many an incident gets and docking points per hint used (applied in
+# complete_incident) turns "ask for help" into a real tradeoff against the
+# final score, instead of a no-cost button.
+MAX_HINTS_PER_INCIDENT = 3
+HINT_SCORE_PENALTY = 5
+
 
 def generate_incident_id() -> str:
     year = datetime.now(timezone.utc).year
@@ -26,6 +40,7 @@ def build_incident_document(scenario: dict, user_id: UUID) -> dict:
         "alert_message": scenario.get("initial_alert_message", ""),
         "evidence_revealed": [],
         "action_log": [],
+        "hints_used": 0,
         "created_at": now,
         "updated_at": now,
     }
@@ -52,7 +67,7 @@ def record_decision(decision: str, notes: Optional[str] = None) -> tuple[dict, s
     return action_entry, new_state
 
 
-def build_ai_commander_update(incident: dict, last_action: str) -> dict:
+def build_ai_commander_update(incident: dict, last_action: str, language: str = "en") -> dict:
     """Ask AI Commander for the next incident update, given current state."""
     message = ai_bridge.commander.generate_update(
         incident_context={
@@ -61,6 +76,7 @@ def build_ai_commander_update(incident: dict, last_action: str) -> dict:
             "alert_message": incident.get("alert_message"),
         },
         last_action=last_action,
+        language=language,
     )
     return {
         "type": "event_update",

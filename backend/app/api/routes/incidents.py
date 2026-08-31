@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ from app.core import ai_bridge
 from app.core.ws_manager import manager
 from app.db.mongodb import incidents_collection, scenarios_collection
 from app.db.postgres import SessionScore
-from app.deps import get_db
+from app.deps import get_current_user_id, get_db
 from app.models.incident import (
     DecideRequest,
     HintRequest,
@@ -19,8 +19,10 @@ from app.models.incident import (
     InvestigateRequest,
     ScoreResponse,
 )
-from app.simulation.branching_logic import apply_investigation_branch
+from app.simulation.branching_logic import apply_investigation_branch, escalate_if_deadline_passed
 from app.simulation.engine import (
+    HINT_SCORE_PENALTY,
+    MAX_HINTS_PER_INCIDENT,
     build_actual_chain,
     build_ai_commander_update,
     record_decision,
@@ -32,21 +34,30 @@ logger = logging.getLogger("iris.incidents")
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 
 
-async def _get_incident_or_404(incident_id: str) -> dict:
+async def _get_incident_or_404(incident_id: str, current_user_id: UUID) -> dict:
     incident = await incidents_collection.find_one({"incident_id": incident_id})
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
+    if incident.get("user_id") != str(current_user_id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this incident")
     return incident
 
 
 @router.get("/{incident_id}", response_model=IncidentResponse)
-async def get_incident(incident_id: str) -> dict:
-    return await _get_incident_or_404(incident_id)
+async def get_incident(
+    incident_id: str, current_user_id: UUID = Depends(get_current_user_id)
+) -> dict:
+    return await _get_incident_or_404(incident_id, current_user_id)
 
 
 @router.post("/{incident_id}/investigate", response_model=IncidentResponse)
-async def investigate_incident(incident_id: str, payload: InvestigateRequest) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def investigate_incident(
+    incident_id: str,
+    payload: InvestigateRequest,
+    current_user_id: UUID = Depends(get_current_user_id),
+    x_language: str = Header(default="en", alias="X-Language"),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
 
     evidence, action_entry = record_investigation(payload.evidence_type)
     new_severity = apply_investigation_branch(
@@ -64,7 +75,7 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
             "$set": {"severity": new_severity, "updated_at": evidence["revealed_at"]},
         },
     )
-    updated = await _get_incident_or_404(incident_id)
+    updated = await _get_incident_or_404(incident_id, current_user_id)
 
     # AI Commander announces the development to anyone watching this
     # incident's WebSocket -- this is the "live incident" feel from the
@@ -74,7 +85,7 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
     # request itself, the evidence was already recorded successfully.
     try:
         ai_update = await run_in_threadpool(
-            build_ai_commander_update, updated, payload.evidence_type
+            build_ai_commander_update, updated, payload.evidence_type, x_language
         )
         await manager.broadcast(incident_id, ai_update)
     except Exception:
@@ -93,8 +104,18 @@ async def investigate_incident(incident_id: str, payload: InvestigateRequest) ->
 
 
 @router.post("/{incident_id}/decide", response_model=IncidentResponse)
-async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def decide_incident(
+    incident_id: str,
+    payload: DecideRequest,
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
+
+    now = datetime.now(timezone.utc)
+    # decide() never recomputed severity at all before this -- only
+    # investigate() did (via apply_investigation_branch) -- so stalling
+    # here past the breach deadline had no consequence either.
+    new_severity = escalate_if_deadline_passed(incident["severity"], incident["created_at"], now)
 
     action_entry, new_state = record_decision(payload.decision, payload.notes)
     await incidents_collection.update_one(
@@ -103,56 +124,120 @@ async def decide_incident(incident_id: str, payload: DecideRequest) -> dict:
             "$push": {"action_log": action_entry},
             "$set": {
                 "current_state": new_state,
-                "updated_at": datetime.now(timezone.utc),
+                "severity": new_severity,
+                "updated_at": now,
             },
         },
     )
+    updated = await _get_incident_or_404(incident_id, current_user_id)
+
+    # Mirrors investigate_incident's AI Commander broadcast: a decision is
+    # exactly the moment the "live incident" narrative should react most --
+    # previously only investigate() triggered a Commander update, so the
+    # live feed went silent at the most consequential action in the whole
+    # flow. Same off-event-loop + best-effort handling: a broadcast failure
+    # shouldn't fail the decide request, the decision was already recorded.
+    try:
+        ai_update = await run_in_threadpool(
+            build_ai_commander_update, updated, payload.decision
+        )
+        await manager.broadcast(incident_id, ai_update)
+    except Exception:
+        logger.error(
+            "AI Commander broadcast failed for incident %s", incident_id, exc_info=True
+        )
+
     logger.info(
         "incident_id=%s user_id=%s action=decide decision=%s",
         incident_id,
         incident.get("user_id"),
         payload.decision,
     )
-    return await _get_incident_or_404(incident_id)
+    return updated
 
 
 @router.post("/{incident_id}/hint")
-async def hint_incident(incident_id: str, payload: HintRequest) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def hint_incident(
+    incident_id: str,
+    payload: HintRequest,
+    current_user_id: UUID = Depends(get_current_user_id),
+    x_language: str = Header(default="en", alias="X-Language"),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
+
+    hints_used = incident.get("hints_used", 0)
+    if hints_used >= MAX_HINTS_PER_INCIDENT:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"No hints remaining for this incident (limit: {MAX_HINTS_PER_INCIDENT}). "
+                "You'll have to work this one out yourself."
+            ),
+        )
+
     action_history = [entry["action"] for entry in incident.get("action_log", [])]
 
     try:
-        hint = ai_bridge.mentor.provide_hint(
+        hint = await run_in_threadpool(
+            ai_bridge.mentor.provide_hint,
             user_question=payload.user_question,
             incident_context={
                 "scenario_id": incident.get("scenario_id"),
                 "severity": incident.get("severity"),
             },
             action_history=action_history,
+            language=x_language,
         )
     except Exception:
         logger.error("AI Mentor call failed for incident %s", incident_id, exc_info=True)
         raise HTTPException(
             status_code=503, detail="AI Mentor is temporarily unavailable, try again shortly"
         )
-    logger.info(
-        "incident_id=%s user_id=%s action=hint", incident_id, incident.get("user_id")
+
+    hints_used += 1
+    await incidents_collection.update_one(
+        {"incident_id": incident_id}, {"$set": {"hints_used": hints_used}}
     )
-    return {"hint": hint}
+
+    logger.info(
+        "incident_id=%s user_id=%s action=hint hints_used=%s",
+        incident_id,
+        incident.get("user_id"),
+        hints_used,
+    )
+    return {
+        "hint": hint,
+        "hints_used": hints_used,
+        "hints_remaining": MAX_HINTS_PER_INCIDENT - hints_used,
+    }
 
 
 @router.post("/{incident_id}/complete", response_model=ScoreResponse)
-async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def complete_incident(
+    incident_id: str,
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+    x_language: str = Header(default="en", alias="X-Language"),
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
     scenario = await scenarios_collection.find_one({"scenario_id": incident["scenario_id"]})
     ideal_chain = (scenario or {}).get("ideal_reasoning_chain", [])
     actual_chain = build_actual_chain(incident.get("action_log", []))
 
+    # Covers completing straight from an idle desk scene with no further
+    # investigate/decide call in between -- those endpoints only see the
+    # deadline if the analyst actually acts again after it passes.
+    final_severity = escalate_if_deadline_passed(
+        incident["severity"], incident["created_at"], datetime.now(timezone.utc)
+    )
+
     try:
-        result = ai_bridge.evaluator.evaluate(
+        result = await run_in_threadpool(
+            ai_bridge.evaluator.evaluate,
             ideal_chain=ideal_chain,
             actual_chain=actual_chain,
-            final_severity=incident["severity"],
+            final_severity=final_severity,
+            language=x_language,
         )
     except Exception:
         logger.error("AI Evaluator call failed for incident %s", incident_id, exc_info=True)
@@ -165,7 +250,28 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
         "decision_score": result.get("decision_score", 0),
         "response_score": result.get("response_score", 0),
     }
-    overall_score = round(sum(categories.values()) / len(categories))
+    # Hints cost points -- each one used docks HINT_SCORE_PENALTY from the
+    # final score (see MAX_HINTS_PER_INCIDENT/HINT_SCORE_PENALTY), so
+    # leaning on the Mentor is a real tradeoff, not a free action. Applied
+    # to the overall score, not the AI Evaluator's per-category scores,
+    # since those should keep reflecting the analyst's raw performance.
+    hints_used = incident.get("hints_used", 0)
+    hint_penalty = hints_used * HINT_SCORE_PENALTY
+    overall_score = max(0, round(sum(categories.values()) / len(categories)) - hint_penalty)
+
+    # A narrative outcome, independent of the numeric score: two analysts
+    # can both score 70% and land in very different stories -- one who
+    # contained a low-severity incident cleanly, one who let it go
+    # critical but still described their (wrong) actions coherently. The
+    # score grades *how well you played*; this says *what happened to the
+    # company*.
+    if final_severity == "critical":
+        outcome = "breach_successful"
+    elif final_severity == "low":
+        outcome = "contained"
+    else:
+        outcome = "contained_with_damage"
+    resolved = outcome != "breach_successful"
 
     score_doc = {
         "score": overall_score,
@@ -175,11 +281,23 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
         "feedback": result.get("feedback"),
         "strengths": result.get("strengths"),
         "improvements": result.get("improvements"),
+        "final_severity": final_severity,
+        "outcome": outcome,
+        "resolved": resolved,
+        "hints_used": hints_used,
+        "hint_penalty": hint_penalty,
     }
 
     await incidents_collection.update_one(
         {"incident_id": incident_id},
-        {"$set": {"status": "completed", "score": score_doc, "updated_at": datetime.now(timezone.utc)}},
+        {
+            "$set": {
+                "status": "completed",
+                "severity": final_severity,
+                "score": score_doc,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
     )
 
     try:
@@ -211,8 +329,10 @@ async def complete_incident(incident_id: str, db: Session = Depends(get_db)) -> 
 
 
 @router.get("/{incident_id}/report", response_model=ScoreResponse)
-async def get_report(incident_id: str) -> dict:
-    incident = await _get_incident_or_404(incident_id)
+async def get_report(
+    incident_id: str, current_user_id: UUID = Depends(get_current_user_id)
+) -> dict:
+    incident = await _get_incident_or_404(incident_id, current_user_id)
     score = incident.get("score")
     if not score:
         raise HTTPException(

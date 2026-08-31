@@ -1,7 +1,9 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Spinner from '../components/common/Spinner'
-import { useSimulationStore } from '../hooks/useSimulation'
+import ScreenBezel from '../components/common/ScreenBezel'
+import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
 
 const severityColor = {
@@ -20,6 +22,7 @@ interface HistorySession {
 
 export default function HistoryPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const userId = useSimulationStore((state) => state.userId)
   const [history, setHistory] = useState<HistorySession[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,14 +35,14 @@ export default function HistoryPage() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/users/${userId}/history`)
+        const res = await fetch(`${API_BASE}/users/${userId}/history`, { headers: getAuthHeaders() })
         if (!res.ok) throw new Error('Failed to fetch history')
         const data = await res.json()
 
         setHistory(
           data.sessions?.map((s: any) => ({
             id: s.incident_id || 'Unknown',
-            scenario: 'Operation Silent Login',
+            scenario: t('history.unknownScenario'),
             date: new Date(s.completed_at).toLocaleDateString(),
             score: Math.round(s.score),
             severity: s.score >= 80 ? 'low' : s.score >= 60 ? 'medium' : 'high',
@@ -53,12 +56,12 @@ export default function HistoryPage() {
     }
 
     fetchHistory()
-  }, [userId])
+  }, [userId, t])
 
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
-        <Spinner label="טוען היסטוריה..." />
+        <Spinner label={t('history.loadingHistory')} />
       </div>
     )
   }
@@ -67,41 +70,43 @@ export default function HistoryPage() {
     <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg uppercase tracking-widest text-accent-success font-bold">
-          Simulation History
+          {t('history.title')}
         </h1>
         <button
           onClick={() => navigate('/')}
           className="text-xs uppercase text-text-secondary hover:text-text-primary transition-colors"
         >
-          ← Back to Home
+          {t('history.backToHome')}
         </button>
       </div>
 
       {history.length === 0 ? (
         <div className="border border-border-default rounded p-4 text-center">
-          <p className="text-sm text-text-secondary">אין היסטוריה של סימולציות עדיין</p>
+          <p className="text-sm text-text-secondary">{t('history.noHistory')}</p>
         </div>
       ) : (
-        <div className="border border-border-default rounded divide-y divide-border-default">
-          {history.map((session) => (
-            <div
-              key={session.id}
-              className="flex items-center justify-between p-4 hover:bg-bg-tertiary transition-colors cursor-pointer"
-              onClick={() => navigate('/report')}
-            >
-              <div>
-                <p className="text-sm font-bold">{session.scenario}</p>
-                <p className="text-xs text-text-secondary">{session.id} | {session.date}</p>
+        <ScreenBezel glow="info">
+          <div className="divide-y divide-border-default">
+            {history.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between p-4 hover:bg-bg-tertiary transition-colors cursor-pointer"
+                onClick={() => navigate('/report')}
+              >
+                <div>
+                  <p className="text-sm font-bold">{session.scenario}</p>
+                  <p className="text-xs text-text-secondary">{session.id} | {session.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-accent-success">{session.score}%</p>
+                  <p className={`text-xs uppercase ${severityColor[session.severity]}`}>
+                    {session.severity}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-accent-success">{session.score}%</p>
-                <p className={`text-xs uppercase ${severityColor[session.severity]}`}>
-                  {session.severity}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScreenBezel>
       )}
     </div>
   )

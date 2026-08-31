@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Scoreboard from '../components/Scoreboard'
 import PostMortemComparison from '../components/PostMortemComparison'
 import Spinner from '../components/common/Spinner'
-import { useSimulationStore } from '../hooks/useSimulation'
+import ScreenBezel from '../components/common/ScreenBezel'
+import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
+import { getLanguageHeader } from '../lib/language'
+import { playBootComplete, playError } from '../lib/sound'
 
 async function completeIncident(incidentId: string) {
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/complete`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...getLanguageHeader() },
   })
   if (!res.ok) throw new Error(`Complete failed: ${res.status}`)
   return res.json()
@@ -17,6 +21,7 @@ async function completeIncident(incidentId: string) {
 
 export default function ReportPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const startSimulation = useSimulationStore((state) => state.startSimulation)
   const incident = useSimulationStore((state) => state.incident)
   const [report, setReport] = useState<any>(null)
@@ -35,8 +40,15 @@ export default function ReportPage() {
     try {
       const result = await completeIncident(incident.incidentId)
       setReport(result)
+      // resolved is undefined for older/mocked report shapes -- don't
+      // play the failure tone in that case, just skip the cue entirely.
+      if (result.resolved === false) {
+        playError()
+      } else if (result.resolved === true) {
+        playBootComplete()
+      }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to generate report'
+      const errorMsg = err instanceof Error ? err.message : t('report.failedToGenerate')
       console.error('Failed to fetch report:', err)
       setError(errorMsg)
     } finally {
@@ -60,7 +72,7 @@ export default function ReportPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
-        <Spinner label="Generating report..." />
+        <Spinner label={t('report.generatingReport')} />
       </div>
     )
   }
@@ -68,15 +80,15 @@ export default function ReportPage() {
   if (error) {
     return (
       <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-4xl mx-auto space-y-6">
-        <div className="border border-accent-error rounded p-4 bg-accent-error/10">
-          <h2 className="text-sm font-semibold text-accent-error mb-2">Failed to Generate Report</h2>
+        <div className="border border-accent-danger rounded p-4 bg-accent-danger/10">
+          <h2 className="text-sm font-semibold text-accent-danger mb-2">{t('report.failedToGenerate')}</h2>
           <p className="text-sm text-text-primary mb-4">{error}</p>
           <button
             onClick={fetchReport}
             disabled={loading}
-            className="border border-accent-error text-accent-error px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-error/10 transition-all disabled:opacity-50"
+            className="border border-accent-danger text-accent-danger px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-danger/10 transition-all disabled:opacity-50"
           >
-            {loading ? 'Retrying...' : 'Retry'}
+            {loading ? t('report.retrying') : t('report.retry')}
           </button>
         </div>
       </div>
@@ -87,7 +99,7 @@ export default function ReportPage() {
     return (
       <div className="page min-h-screen bg-bg-primary text-text-primary p-6 max-w-4xl mx-auto space-y-6">
         <div className="border border-border-default rounded p-4">
-          <p className="text-sm text-text-secondary">No report data available.</p>
+          <p className="text-sm text-text-secondary">{t('report.noReportData')}</p>
         </div>
       </div>
     )
@@ -103,8 +115,8 @@ export default function ReportPage() {
       yourAction && yourAction === idealAction ? 'correct' : yourAction ? 'wrong' : 'missing'
     return {
       step: i + 1,
-      ideal: idealAction ?? '(none)',
-      yours: yourAction ?? '(Not Done)',
+      ideal: idealAction ?? t('postMortem.none'),
+      yours: yourAction ?? t('postMortem.notDone'),
       status,
     }
   })
@@ -114,17 +126,21 @@ export default function ReportPage() {
       <Scoreboard
         finalScore={report.score}
         breakdown={[
-          { label: 'Detection', value: report.categories?.detection_score },
-          { label: 'Decision', value: report.categories?.decision_score },
-          { label: 'Response', value: report.categories?.response_score },
+          { label: t('scoreboard.detection'), value: report.categories?.detection_score },
+          { label: t('scoreboard.decision'), value: report.categories?.decision_score },
+          { label: t('scoreboard.response'), value: report.categories?.response_score },
         ]}
+        outcome={report.outcome}
+        resolved={report.resolved}
       />
 
       <PostMortemComparison steps={comparisonSteps} />
 
-      <div className="border border-border-default rounded p-4">
-        <h2 className="text-sm uppercase text-text-secondary mb-2">Feedback</h2>
-        <p className="text-sm leading-relaxed">{report.feedback}</p>
+      <div>
+        <h2 className="text-sm uppercase text-text-secondary mb-2">{t('report.feedback')}</h2>
+        <ScreenBezel glow="info">
+          <p className="p-4 text-sm leading-relaxed">{report.feedback}</p>
+        </ScreenBezel>
       </div>
 
       <div className="flex justify-center gap-3">
@@ -132,13 +148,13 @@ export default function ReportPage() {
           onClick={handleNextSimulation}
           className="border border-accent-success text-accent-success px-4 py-2 text-xs uppercase tracking-wide hover:bg-accent-success/10 transition-all"
         >
-          Next Simulation
+          {t('report.nextSimulation')}
         </button>
         <button
           onClick={() => navigate('/')}
           className="border border-border-default text-text-secondary px-4 py-2 text-xs uppercase tracking-wide hover:border-border-highlight transition-all"
         >
-          Home
+          {t('report.home')}
         </button>
       </div>
     </div>

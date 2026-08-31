@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { IconCheck, IconBlock, IconX } from '../common/icons'
 import type { EvidenceDetails } from '../../lib/scenarios'
 
 interface SystemActionViewProps {
@@ -12,6 +14,7 @@ interface SystemActionViewProps {
 // look, reusing the same corner-bracket + glow language as the floating
 // Hint/Complete buttons on the desk scene.
 export default function SystemActionView({ title, details, onClose }: SystemActionViewProps) {
+  const { t } = useTranslation()
   const color = details.status === 'success' ? 'success' : 'danger'
   return (
     <div
@@ -23,17 +26,17 @@ export default function SystemActionView({ title, details, onClose }: SystemActi
       <button
         onClick={onClose}
         className="absolute right-3 top-3 text-text-secondary hover:text-text-primary transition-colors"
-        aria-label="Close"
+        aria-label={t('common.close')}
       >
-        ✕
+        <IconX />
       </button>
 
       <div
-        className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-2xl ${
+        className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full ${
           color === 'success' ? 'bg-accent-success/15 text-accent-success' : 'bg-accent-danger/15 text-accent-danger'
         }`}
       >
-        {color === 'success' ? '✓' : '⛔'}
+        {color === 'success' ? <IconCheck size={22} /> : <IconBlock size={22} />}
       </div>
 
       <p className={`font-display text-sm uppercase tracking-wide ${color === 'success' ? 'text-accent-success' : 'text-accent-danger'}`}>

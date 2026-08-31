@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
+import ScreenBezel from '../components/common/ScreenBezel'
 import EvidenceCard from '../components/EvidenceCard'
 import ActionButton from '../components/ActionButton'
 import DeskScene, { type HotspotAction } from '../components/DeskScene'
 import EvidenceDetail from '../components/evidence-views/EvidenceDetail'
 import Toast from '../components/common/Toast'
 import Spinner from '../components/common/Spinner'
-import { useSimulationStore } from '../hooks/useSimulation'
+import { IconBulb } from '../components/common/icons'
+import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
+import { getLanguageHeader } from '../lib/language'
 import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
+import { playClick, playSuccess, playError, playAlert, playChime } from '../lib/sound'
 
 const mockLogs = [
   { time: '10:30', source: 'auth', type: 'FAILED', details: '5x Failed Login (passwd)' },
@@ -30,9 +35,21 @@ const IDLE_NUDGE_MS = 30_000
 export default function SimulationPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { incident, timeline, evidence, actionLog, startSimulation, investigateEvidence, decide, completeSimulation } =
-    useSimulationStore()
+  const { t } = useTranslation()
+  const {
+    incident,
+    timeline,
+    evidence,
+    actionLog,
+    hintsRemaining,
+    startSimulation,
+    investigateEvidence,
+    decide,
+    completeSimulation,
+    setHintsRemaining,
+  } = useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [toastVariant, setToastVariant] = useState<'success' | 'danger' | 'warning' | 'info'>('success')
   const [loading, setLoading] = useState(false)
   const [openEvidenceId, setOpenEvidenceId] = useState<string | null>(null)
   const [caseFileOpen, setCaseFileOpen] = useState(false)
@@ -49,10 +66,11 @@ export default function SimulationPage() {
     // /simulation directly via a refresh).
     if (!incident) {
       startSimulation(requestedScenarioId).catch((err) => {
-        setToastMessage(`Failed to start simulation: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        setToastVariant('danger')
+        setToastMessage(t('simulation.toast.failedToStart', { error: err instanceof Error ? err.message : 'Unknown error' }))
       })
     }
-  }, [incident, requestedScenarioId, startSimulation])
+  }, [incident, requestedScenarioId, startSimulation, t])
 
   useWebSocket(incident?.incidentId || '')
 
@@ -69,7 +87,9 @@ export default function SimulationPage() {
     let dismissTimer: ReturnType<typeof setTimeout> | undefined
 
     const nudgeTimer = setTimeout(() => {
-      setToastMessage('⚠ Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.')
+      playAlert()
+      setToastVariant('warning')
+      setToastMessage(t('simulation.toast.idleNudge'))
       dismissTimer = setTimeout(() => setToastMessage(null), 5000)
     }, IDLE_NUDGE_MS)
 
@@ -80,15 +100,41 @@ export default function SimulationPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incident?.incidentId, actionLog.length])
 
+  // The backend re-evaluates severity on every investigate (see
+  // useSimulation.ts's investigateEvidence), so the badge in SOCHeader can
+  // now jump low -> medium -> high mid-session. That's the moment the
+  // incident is meant to feel like it just got worse -- give it a beat
+  // (alert tone + a brief shake on the badge) instead of letting the label
+  // silently change color, which is easy to miss during an active investigation.
+  const severityRef = useRef(incident?.severity)
+  const [severityFlashKey, setSeverityFlashKey] = useState(0)
+  useEffect(() => {
+    const rank = { low: 0, medium: 1, high: 2, critical: 3 } as const
+    const prev = severityRef.current
+    const next = incident?.severity
+    if (prev && next && rank[next] > rank[prev]) {
+      playAlert()
+      setSeverityFlashKey((k) => k + 1)
+      setToastVariant('danger')
+      setToastMessage(t('simulation.toast.severityEscalated', { severity: next.toUpperCase() }))
+      setTimeout(() => setToastMessage(null), 3500)
+    }
+    severityRef.current = next
+  }, [incident?.severity, t])
+
   const handleInvestigate = async (label: string) => {
     try {
       setLoading(true)
       await investigateEvidence(label)
-      setToastMessage(`${label}: investigation complete`)
+      playSuccess()
+      setToastVariant('success')
+      setToastMessage(t('simulation.toast.investigateDone', { label }))
       setTimeout(() => setToastMessage(null), 3000)
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Investigation failed'
-      setToastMessage(`Failed: ${errorMsg}`)
+      const errorMsg = error instanceof Error ? error.message : t('simulation.toast.investigationFailed', { error: '' })
+      playError()
+      setToastVariant('danger')
+      setToastMessage(t('simulation.toast.investigationFailed', { error: errorMsg }))
       setTimeout(() => setToastMessage(null), 4000)
     } finally {
       setLoading(false)
@@ -99,11 +145,15 @@ export default function SimulationPage() {
     try {
       setLoading(true)
       await decide(label)
-      setToastMessage(`${label}: action taken`)
+      playSuccess()
+      setToastVariant('success')
+      setToastMessage(t('simulation.toast.actionTaken', { label }))
       setTimeout(() => setToastMessage(null), 3000)
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Decision failed'
-      setToastMessage(`Failed: ${errorMsg}`)
+      const errorMsg = error instanceof Error ? error.message : t('simulation.toast.decisionFailed', { error: '' })
+      playError()
+      setToastVariant('danger')
+      setToastMessage(t('simulation.toast.decisionFailed', { error: errorMsg }))
       setTimeout(() => setToastMessage(null), 4000)
     } finally {
       setLoading(false)
@@ -114,6 +164,7 @@ export default function SimulationPage() {
   // (investigate/decide are one-shot per label) -- it just re-opens that
   // evidence, enlarged and centered, like picking the object back up.
   const handleHotspotSelect = async (action: HotspotAction) => {
+    playClick()
     const meta = getScenario(incident?.scenarioId).evidenceLibrary[action.label]
     const alreadyRevealed = meta ? evidence.some((e) => e.id === meta.id) : false
 
@@ -131,25 +182,46 @@ export default function SimulationPage() {
   }
 
   const handleComplete = async () => {
+    playClick()
     completeSimulation()
     navigate('/report')
   }
 
   const handleGetHint = async () => {
     if (!incident) return
+    if (hintsRemaining <= 0) return
     try {
       const res = await fetch(`${API_BASE}/incidents/${incident.incidentId}/hint`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_question: 'איזו פעולה כדאי לי לעשות הבא?' }),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...getLanguageHeader() },
+        body: JSON.stringify({ user_question: t('simulation.defaultHintQuestion') }),
       })
+      // Hints are capped server-side (429 once the limit is reached) --
+      // sync the displayed count down to 0 even if the client's local
+      // count somehow drifted from the server's.
+      if (res.status === 429) {
+        setHintsRemaining(0)
+        playError()
+        setToastVariant('warning')
+        setToastMessage(t('simulation.toast.noHintsLeft'))
+        setTimeout(() => setToastMessage(null), 4000)
+        return
+      }
       if (!res.ok) throw new Error('Failed to get hint')
       const data = await res.json()
-      setToastMessage(`💡 AI Mentor: ${data.hint}`)
+      setHintsRemaining(data.hints_remaining ?? hintsRemaining - 1)
+      playChime()
+      setToastVariant('info')
+      const remaining = data.hints_remaining ?? hintsRemaining - 1
+      const mentorHintKey =
+        remaining === 0 ? 'simulation.toast.mentorHintLastOne' : 'simulation.toast.mentorHintRemaining'
+      setToastMessage(t(mentorHintKey, { hint: data.hint, count: remaining }))
       setTimeout(() => setToastMessage(null), 5000)
     } catch (error) {
       console.error('Failed to get hint:', error)
-      setToastMessage('לא הצלחתי לקבל רמז - בדוק שהחיבור לשרת פועל')
+      playError()
+      setToastVariant('danger')
+      setToastMessage(t('simulation.toast.hintError'))
       setTimeout(() => setToastMessage(null), 3000)
     }
   }
@@ -157,7 +229,7 @@ export default function SimulationPage() {
   if (!incident) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
-        <Spinner label="Loading incident..." />
+        <Spinner label={t('simulation.loadingIncident')} />
       </div>
     )
   }
@@ -188,28 +260,39 @@ export default function SimulationPage() {
 
   return (
     <div className="page fixed inset-0 overflow-hidden bg-bg-primary text-text-primary">
-      {/* Full-bleed desk scene: locked to the photo's own 1535:1024 frame,
-          scaled up to cover the viewport on whichever axis needs it (the
-          same result as object-fit: cover), but exposed as a real
-          positioned box -- so every hotspot/overlay below, tuned in the
-          photo's own percentages, stays aligned with the actual objects
-          in the image at any window shape, and everything the analyst
-          needs renders inside the photo instead of around it. */}
+      {/* Full-bleed desk scene: locked to the illustration's own
+          1535:1024 frame, scaled up to cover the viewport on whichever
+          axis needs it (the same result as object-fit: cover), but
+          exposed as a real positioned box -- so every hotspot/overlay
+          below, tuned in the scene's own percentages, stays aligned
+          with the actual illustrated objects at any window shape, and
+          everything the analyst needs renders inside the scene instead
+          of around it. */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ aspectRatio: '1535 / 1024', minWidth: '100vw', minHeight: '100vh' }}
       >
-        <DeskScene actions={hotspotActions} onSelect={handleHotspotSelect} disabled={loading} />
+        <DeskScene
+          actions={hotspotActions}
+          onSelect={handleHotspotSelect}
+          disabled={loading}
+          severity={incident.severity}
+        />
       </div>
 
       {/* Top HUD strip -- translucent, over the scene, not pushing it down. */}
       <div className="absolute inset-x-0 top-0 z-20 border-b border-border-default/60 bg-bg-primary/70 backdrop-blur-sm">
-        <SOCHeader incidentId={incident.incidentId} severity={incident.severity} startedAt={incident.startedAt} />
+        <SOCHeader
+          incidentId={incident.incidentId}
+          severity={incident.severity}
+          startedAt={incident.startedAt}
+          severityFlashKey={severityFlashKey}
+        />
       </div>
 
-      {/* Incident alert -- anchored to the viewport (not the photo frame):
+      {/* Incident alert -- anchored to the viewport (not the scene frame):
           the frame's "cover" scaling crops its top/bottom on wide screens,
-          so anything pinned near its edge in photo-percentages can land
+          so anything pinned near its edge in scene-percentages can land
           off-screen. This still reads as part of the scene since the
           scene now fills the whole viewport behind it. */}
       <div
@@ -217,7 +300,7 @@ export default function SimulationPage() {
       >
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent-danger status-active" />
-          <span className="stamp !border-accent-danger !text-accent-danger !py-0 !px-1.5 text-[9px]">Breaking</span>
+          <span className="stamp !border-accent-danger !text-accent-danger !py-0 !px-1.5 text-[9px]">{t('simulation.breaking')}</span>
           <span className="truncate text-[10px] uppercase tracking-[0.15em] text-text-secondary">{scenario.title}</span>
         </div>
         <p className="font-display briefing-glow mt-1 line-clamp-2 text-xs text-text-primary sm:text-sm">
@@ -226,14 +309,14 @@ export default function SimulationPage() {
       </div>
 
       {/* Case file drawer -- Timeline/Evidence/Logs live here instead of
-          beside the photo, tucked behind an edge tab so the default view
+          beside the scene, tucked behind an edge tab so the default view
           is the scene itself. */}
       <button
         onClick={() => setCaseFileOpen((v) => !v)}
         style={{ writingMode: 'vertical-rl' }}
         className="absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-l border border-r-0 border-border-default bg-bg-primary/85 px-2 py-4 text-[10px] uppercase tracking-wide text-accent-success hover:bg-bg-secondary"
       >
-        {caseFileOpen ? 'Close' : 'Case File'}
+        {caseFileOpen ? t('simulation.closeDrawer') : t('simulation.caseFile')}
       </button>
 
       <div
@@ -241,18 +324,22 @@ export default function SimulationPage() {
           caseFileOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="mb-4 rounded border border-border-default p-4">
-          <h2 className="mb-2 text-sm uppercase text-text-secondary">Event Timeline</h2>
-          <EventTimeline steps={timeline} />
+        <div className="mb-4">
+          <h2 className="mb-2 text-sm uppercase text-text-secondary">{t('simulation.eventTimeline')}</h2>
+          <ScreenBezel glow="info">
+            <div className="p-4">
+              <EventTimeline steps={timeline} />
+            </div>
+          </ScreenBezel>
         </div>
 
         <div className="cork-board mb-4 rounded p-4">
           <h2 className="mb-3 inline-block rounded bg-bg-primary/70 px-2 py-1 font-display text-sm uppercase tracking-wide text-paper">
-            Evidence Board
+            {t('simulation.evidenceBoard')}
           </h2>
           <div className="space-y-4 pt-1">
             {evidence.length === 0 && (
-              <p className="rounded bg-black/30 p-2 text-xs text-[#f0e6d0]">No evidence revealed yet. Investigate to find clues.</p>
+              <p className="rounded bg-black/30 p-2 text-xs text-paper">{t('simulation.noEvidence')}</p>
             )}
             {evidence.map((item) => (
               <EvidenceCard
@@ -267,28 +354,37 @@ export default function SimulationPage() {
           </div>
         </div>
 
-        <div className="rounded border border-border-default p-4">
-          <h2 className="mb-2 text-sm uppercase text-text-secondary">Logs</h2>
-          <LogViewer logs={mockLogs} />
+        <div>
+          <h2 className="mb-2 text-sm uppercase text-text-secondary">{t('simulation.logs')}</h2>
+          <ScreenBezel glow="success">
+            <LogViewer logs={mockLogs} />
+          </ScreenBezel>
         </div>
       </div>
 
       {/* Floating HUD actions, anchored to the scene's corners. */}
       <button
         onClick={handleGetHint}
-        disabled={loading}
+        disabled={loading || hintsRemaining <= 0}
         className="hud-frame absolute bottom-4 left-4 z-20 max-w-xs rounded border-2 border-accent-info bg-bg-primary/85 p-3 text-left backdrop-blur-sm transition-all hover:bg-accent-info/20 hover:shadow-[0_0_20px_rgb(var(--glow-info)/0.4)] disabled:cursor-not-allowed disabled:opacity-50"
         style={{ ['--hud-color' as string]: 'var(--color-accent-info)' }}
       >
-        <p className="text-xs font-bold uppercase tracking-wide text-accent-info">💡 Ask Your Mentor for a Hint</p>
-        <p className="mt-1 text-[11px] text-text-secondary">Stuck? Get a nudge — never the answer itself.</p>
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-info">
+          <IconBulb className="shrink-0" />
+          {t('simulation.askMentor', { count: hintsRemaining })}
+        </p>
+        <p className="mt-1 text-[11px] text-text-secondary">
+          {hintsRemaining > 0 ? t('simulation.askMentorSub') : t('simulation.askMentorSubNoHints')}
+        </p>
       </button>
 
       <div className="absolute bottom-4 right-4 z-20">
-        <ActionButton label="Complete Simulation" onClick={handleComplete} />
+        <ActionButton label={t('simulation.completeSimulation')} onClick={handleComplete} />
       </div>
 
-      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
+      {toastMessage && (
+        <Toast message={toastMessage} variant={toastVariant} onClose={() => setToastMessage(null)} />
+      )}
 
       {openEvidenceItem && (
         <EvidenceDetail item={openEvidenceItem} onClose={() => setOpenEvidenceId(null)} />

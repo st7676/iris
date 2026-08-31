@@ -8,15 +8,15 @@ interface EventTimelineProps {
 }
 
 const statusColor = {
-  done: 'bg-accent-success shadow-[0_0_8px_rgb(var(--glow-success)/0.7)]',
-  current: 'bg-accent-info shadow-[0_0_8px_rgb(var(--glow-info)/0.7)] animate-pulse',
-  pending: 'bg-border-highlight',
+  done: 'bg-accent-primary shadow-[0_0_8px_rgb(var(--glow-primary)/0.5)]',
+  current: 'bg-accent-primary shadow-[0_0_12px_rgb(var(--glow-primary)/0.6)] animate-pulse',
+  pending: 'bg-border-default',
 }
 
 const labelColor = {
-  done: 'text-accent-success',
-  current: 'text-accent-info',
-  pending: 'text-text-secondary',
+  done: 'text-accent-primary',
+  current: 'text-accent-primary',
+  pending: 'text-text-muted',
 }
 
 export default function EventTimeline({ steps }: EventTimelineProps) {
