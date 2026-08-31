@@ -3,7 +3,7 @@ import Timer from './common/Timer'
 
 interface SOCHeaderProps {
   incidentId: string
-  severity: 'low' | 'medium' | 'high'
+  severity: 'low' | 'medium' | 'high' | 'critical'
   startedAt: string
   // Bumped by SimulationPage whenever severity ranks up (see its
   // severityRef effect) -- a plain prop change wouldn't be enough to
@@ -17,6 +17,11 @@ const severityColors = {
   low: 'text-accent-success border-accent-success',
   medium: 'text-accent-warning border-accent-warning',
   high: 'text-accent-danger border-accent-danger',
+  // Only reachable once the breach deadline passes (see
+  // escalate_if_deadline_passed) -- inverted fill instead of just an
+  // outline, since by this point it's not a warning anymore, it's already
+  // happened.
+  critical: 'text-bg-primary bg-accent-danger border-accent-danger',
 }
 
 export default function SOCHeader({ incidentId, severity, startedAt, severityFlashKey }: SOCHeaderProps) {

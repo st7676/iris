@@ -6,6 +6,7 @@ import Spinner from '../components/common/Spinner'
 import ScreenBezel from '../components/common/ScreenBezel'
 import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { API_BASE } from '../lib/constants'
+import { playBootComplete, playError } from '../lib/sound'
 
 async function completeIncident(incidentId: string) {
   const res = await fetch(`${API_BASE}/incidents/${incidentId}/complete`, {
@@ -36,6 +37,13 @@ export default function ReportPage() {
     try {
       const result = await completeIncident(incident.incidentId)
       setReport(result)
+      // resolved is undefined for older/mocked report shapes -- don't
+      // play the failure tone in that case, just skip the cue entirely.
+      if (result.resolved === false) {
+        playError()
+      } else if (result.resolved === true) {
+        playBootComplete()
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to generate report'
       console.error('Failed to fetch report:', err)
@@ -119,6 +127,8 @@ export default function ReportPage() {
           { label: 'Decision', value: report.categories?.decision_score },
           { label: 'Response', value: report.categories?.response_score },
         ]}
+        outcome={report.outcome}
+        resolved={report.resolved}
       />
 
       <PostMortemComparison steps={comparisonSteps} />

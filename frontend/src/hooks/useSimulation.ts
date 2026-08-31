@@ -135,7 +135,12 @@ async function apiDecide(incidentId: string, scenarioId: string, label: string) 
 interface Incident {
   incidentId: string
   scenarioId: string
-  severity: 'low' | 'medium' | 'high'
+  // 'critical' is reachable once the breach deadline passes (see
+  // backend's branching_logic.py's escalate_if_deadline_passed) -- it
+  // used to be missing here even though the backend enum has always had
+  // it, so a real critical response would have hit an undefined color
+  // lookup in SOCHeader.
+  severity: 'low' | 'medium' | 'high' | 'critical'
   alertMessage: string
   startedAt: string
 }

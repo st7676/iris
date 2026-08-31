@@ -96,7 +96,7 @@ export default function SimulationPage() {
   const severityRef = useRef(incident?.severity)
   const [severityFlashKey, setSeverityFlashKey] = useState(0)
   useEffect(() => {
-    const rank = { low: 0, medium: 1, high: 2 } as const
+    const rank = { low: 0, medium: 1, high: 2, critical: 3 } as const
     const prev = severityRef.current
     const next = incident?.severity
     if (prev && next && rank[next] > rank[prev]) {

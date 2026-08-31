@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 import pytest
@@ -666,6 +667,80 @@ def test_complete_returns_score_and_marks_incident_completed(client):
     report = client.get(f"/api/incidents/{incident_id}/report", headers=headers)
     assert report.status_code == 200
     assert report.json() == body
+
+
+def _backdate_incident(mongo_db, incident_id: str, seconds_ago: int) -> None:
+    """Rewrites an incident's created_at to simulate time having passed,
+    without needing the test to actually sleep 10 minutes."""
+    from datetime import datetime, timedelta, timezone
+
+    backdated = datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)
+    asyncio.run(
+        mongo_db["incidents"].update_one(
+            {"incident_id": incident_id}, {"$set": {"created_at": backdated}}
+        )
+    )
+
+
+def test_investigate_after_deadline_forces_critical_severity(client, mongo_db):
+    """Past BREACH_DEADLINE_SECONDS, the attacker is treated as having
+    finished regardless of what's investigated -- even the scenario's own
+    "quick check" evidence (which normally lowers severity) shouldn't
+    save it once the deadline has already passed."""
+    incident_id, headers, _ = _start_incident(client)
+    _backdate_incident(mongo_db, incident_id, seconds_ago=700)
+
+    response = client.post(
+        f"/api/incidents/{incident_id}/investigate",
+        json={"evidence_type": "auth_logs"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["severity"] == "critical"
+
+
+def test_decide_after_deadline_forces_critical_severity(client, mongo_db):
+    incident_id, headers, _ = _start_incident(client)
+    _backdate_incident(mongo_db, incident_id, seconds_ago=700)
+
+    response = client.post(
+        f"/api/incidents/{incident_id}/decide",
+        json={"decision": "escalate_to_soc_lead"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["severity"] == "critical"
+
+
+def test_complete_after_deadline_reports_breach_successful(client, mongo_db):
+    """Completing without any further action after the deadline (e.g.
+    walking away from the desk scene) must still land on the failure
+    outcome -- not just the endpoints the analyst happens to call."""
+    incident_id, headers, _ = _start_incident(client)
+    _backdate_incident(mongo_db, incident_id, seconds_ago=700)
+
+    response = client.post(f"/api/incidents/{incident_id}/complete", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["final_severity"] == "critical"
+    assert body["outcome"] == "breach_successful"
+    assert body["resolved"] is False
+
+
+def test_complete_within_deadline_reports_contained_outcome(client):
+    incident_id, headers, _ = _start_incident(client)
+    client.post(
+        f"/api/incidents/{incident_id}/investigate",
+        json={"evidence_type": "auth_logs"},
+        headers=headers,
+    )
+
+    response = client.post(f"/api/incidents/{incident_id}/complete", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["final_severity"] == "low"
+    assert body["outcome"] == "contained"
+    assert body["resolved"] is True
 
 
 def test_complete_incident_not_found(client):

@@ -158,6 +158,13 @@ class ScoreResponse(BaseModel):
     feedback: Optional[str] = None
     strengths: Optional[str] = None
     improvements: Optional[str] = None
+    # A narrative outcome computed from final_severity, independent of the
+    # numeric score -- see complete_incident's outcome comment. resolved is
+    # a convenience bool for the frontend so it doesn't need to know the
+    # outcome string values to branch its win/lose screen.
+    final_severity: Severity = Severity.medium
+    outcome: str = "contained_with_damage"
+    resolved: bool = True
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -173,6 +180,9 @@ class ScoreResponse(BaseModel):
                 "feedback": "Strong triage instincts, but the entry vector was confirmed late.",
                 "strengths": "Fast password reset after confirming compromise.",
                 "improvements": "Check email logs before file access next time.",
+                "final_severity": "low",
+                "outcome": "contained",
+                "resolved": True,
             }
         }
     )
