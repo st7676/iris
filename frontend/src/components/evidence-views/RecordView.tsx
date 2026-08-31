@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { IconUser, IconX } from '../common/icons'
 import type { EvidenceDetails } from '../../lib/scenarios'
 
@@ -11,12 +12,13 @@ interface RecordViewProps {
 // the case-folder cards), and a corner photo placeholder like a real HR
 // record or ID document would have.
 export default function RecordView({ details, onClose }: RecordViewProps) {
+  const { t } = useTranslation()
   return (
     <div className="relative w-full rounded bg-paper p-6 text-paper-text shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
       <button
         onClick={onClose}
         className="absolute right-3 top-3 text-paper-text/60 hover:text-paper-text transition-colors"
-        aria-label="Close"
+        aria-label={t('common.close')}
       >
         <IconX />
       </button>

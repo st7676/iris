@@ -16,9 +16,11 @@
     "@tanstack/react-query": "^5.101.2",
     "autoprefixer": "^10.5.4",
     "axios": "^1.18.1",
+    "i18next": "^26.4.0",
     "postcss": "^8.5.20",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-i18next": "^17.0.12",
     "react-router-dom": "^7.18.2",
     "tailwindcss": "^4.3.3",
     "zustand": "^5.0.14"

@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { playTick, playBootComplete } from '../../lib/sound'
 
 const SESSION_KEY = 'iris-boot-shown'
 
-const STATUS_LINES = [
-  'core services',
-  'secure uplink',
-  'threat intelligence feed',
-  'desk sensor array',
-]
+const STATUS_LINE_KEYS = ['boot.lines.core', 'boot.lines.uplink', 'boot.lines.threatFeed', 'boot.lines.sensorArray'] as const
 
 const TOTAL_DURATION_MS = 1500
 
@@ -25,6 +21,8 @@ interface BootSequenceProps {
 // so the whole thing resolves in ~1.5s. Click/tap or any key skips
 // straight to the app.
 export default function BootSequence({ onDone }: BootSequenceProps) {
+  const { t } = useTranslation()
+  const STATUS_LINES = STATUS_LINE_KEYS.map((key) => t(key))
   const [visibleLines, setVisibleLines] = useState(0)
   const [granted, setGranted] = useState(false)
   const [fadingOut, setFadingOut] = useState(false)
@@ -100,7 +98,7 @@ export default function BootSequence({ onDone }: BootSequenceProps) {
           IRIS
         </h1>
         <p className="mt-2 text-[11px] uppercase tracking-[0.35em] text-text-secondary animate-fade-up">
-          Cyber Defense Console
+          {t('boot.subtitle')}
         </p>
 
         <div className="mt-8 h-1 w-full overflow-hidden rounded bg-bg-tertiary">
@@ -132,11 +130,11 @@ export default function BootSequence({ onDone }: BootSequenceProps) {
             granted ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          Access Granted
+          {t('boot.accessGranted')}
         </p>
 
         <p className="mt-10 text-[10px] uppercase tracking-widest text-text-muted">
-          Click or press any key to skip
+          {t('boot.skipHint')}
         </p>
       </div>
     </div>

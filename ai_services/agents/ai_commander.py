@@ -7,7 +7,7 @@ class AICommander(BaseAgent):
     def get_system_prompt(self) -> str:
         return COMMANDER_SYSTEM_PROMPT
 
-    def generate_update(self, incident_context: dict, last_action: str) -> str:
+    def generate_update(self, incident_context: dict, last_action: str, language: str = "en") -> str:
         """Generate next incident update."""
         # last_action ultimately comes from the client-supplied
         # evidence_type on /investigate (InvestigateRequest.evidence_type
@@ -20,4 +20,4 @@ class AICommander(BaseAgent):
             last_action=safe_last_action,
             severity=incident_context.get("severity", "UNKNOWN"),
         )
-        return self.call(prompt)
+        return self.call(prompt, language=language)

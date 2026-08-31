@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import ScreenBezel from '../common/ScreenBezel'
 import { IconX } from '../common/icons'
 
@@ -14,6 +15,7 @@ interface AppWindowChromeProps {
 // instead of the paper/cork look used for physical documents (RecordView)
 // or the system dialog (SystemActionView).
 export default function AppWindowChrome({ title, onClose, children }: AppWindowChromeProps) {
+  const { t } = useTranslation()
   return (
     <ScreenBezel className="w-full" glow="info">
       <div className="flex items-center gap-2 border-b border-border-default bg-bg-tertiary px-3 py-2">
@@ -24,7 +26,7 @@ export default function AppWindowChrome({ title, onClose, children }: AppWindowC
         <button
           onClick={onClose}
           className="text-text-secondary hover:text-text-primary transition-colors"
-          aria-label="Close"
+          aria-label={t('common.close')}
         >
           <IconX />
         </button>

@@ -9,7 +9,9 @@ class AIEvaluator(BaseAgent):
     def get_system_prompt(self) -> str:
         return EVALUATOR_SYSTEM_PROMPT
 
-    def evaluate(self, ideal_chain: list, actual_chain: list, final_severity: str) -> dict:
+    def evaluate(
+        self, ideal_chain: list, actual_chain: list, final_severity: str, language: str = "en"
+    ) -> dict:
         """Evaluate the user's performance."""
         # ideal_chain comes from our own scenario data (trusted). actual_chain's
         # action names are derived from client-supplied evidence_type/decision
@@ -24,7 +26,7 @@ class AIEvaluator(BaseAgent):
             final_severity=final_severity,
         )
 
-        response_text = self.call(prompt)
+        response_text = self.call(prompt, language=language)
         cleaned = self._strip_markdown_fence(response_text)
         try:
             result = json.loads(cleaned)

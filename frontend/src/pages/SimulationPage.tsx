@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import SOCHeader from '../components/SOCHeader'
 import EventTimeline from '../components/EventTimeline'
 import LogViewer from '../components/LogViewer'
@@ -14,6 +15,7 @@ import { IconBulb } from '../components/common/icons'
 import { useSimulationStore, getAuthHeaders } from '../hooks/useSimulation'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { API_BASE } from '../lib/constants'
+import { getLanguageHeader } from '../lib/language'
 import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
 import { playClick, playSuccess, playError, playAlert, playChime } from '../lib/sound'
 
@@ -33,6 +35,7 @@ const IDLE_NUDGE_MS = 30_000
 export default function SimulationPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
   const { incident, timeline, evidence, actionLog, startSimulation, investigateEvidence, decide, completeSimulation } =
     useSimulationStore()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -54,10 +57,10 @@ export default function SimulationPage() {
     if (!incident) {
       startSimulation(requestedScenarioId).catch((err) => {
         setToastVariant('danger')
-        setToastMessage(`Failed to start simulation: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        setToastMessage(t('simulation.toast.failedToStart', { error: err instanceof Error ? err.message : 'Unknown error' }))
       })
     }
-  }, [incident, requestedScenarioId, startSimulation])
+  }, [incident, requestedScenarioId, startSimulation, t])
 
   useWebSocket(incident?.incidentId || '')
 
@@ -76,7 +79,7 @@ export default function SimulationPage() {
     const nudgeTimer = setTimeout(() => {
       playAlert()
       setToastVariant('warning')
-      setToastMessage('Commander: No activity detected. The incident is still evolving — investigate further or consult your Mentor.')
+      setToastMessage(t('simulation.toast.idleNudge'))
       dismissTimer = setTimeout(() => setToastMessage(null), 5000)
     }, IDLE_NUDGE_MS)
 
@@ -103,11 +106,11 @@ export default function SimulationPage() {
       playAlert()
       setSeverityFlashKey((k) => k + 1)
       setToastVariant('danger')
-      setToastMessage(`Severity escalated to ${next.toUpperCase()}`)
+      setToastMessage(t('simulation.toast.severityEscalated', { severity: next.toUpperCase() }))
       setTimeout(() => setToastMessage(null), 3500)
     }
     severityRef.current = next
-  }, [incident?.severity])
+  }, [incident?.severity, t])
 
   const handleInvestigate = async (label: string) => {
     try {
@@ -115,13 +118,13 @@ export default function SimulationPage() {
       await investigateEvidence(label)
       playSuccess()
       setToastVariant('success')
-      setToastMessage(`${label}: investigation complete`)
+      setToastMessage(t('simulation.toast.investigateDone', { label }))
       setTimeout(() => setToastMessage(null), 3000)
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Investigation failed'
+      const errorMsg = error instanceof Error ? error.message : t('simulation.toast.investigationFailed', { error: '' })
       playError()
       setToastVariant('danger')
-      setToastMessage(`Failed: ${errorMsg}`)
+      setToastMessage(t('simulation.toast.investigationFailed', { error: errorMsg }))
       setTimeout(() => setToastMessage(null), 4000)
     } finally {
       setLoading(false)
@@ -134,13 +137,13 @@ export default function SimulationPage() {
       await decide(label)
       playSuccess()
       setToastVariant('success')
-      setToastMessage(`${label}: action taken`)
+      setToastMessage(t('simulation.toast.actionTaken', { label }))
       setTimeout(() => setToastMessage(null), 3000)
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Decision failed'
+      const errorMsg = error instanceof Error ? error.message : t('simulation.toast.decisionFailed', { error: '' })
       playError()
       setToastVariant('danger')
-      setToastMessage(`Failed: ${errorMsg}`)
+      setToastMessage(t('simulation.toast.decisionFailed', { error: errorMsg }))
       setTimeout(() => setToastMessage(null), 4000)
     } finally {
       setLoading(false)
@@ -179,20 +182,20 @@ export default function SimulationPage() {
     try {
       const res = await fetch(`${API_BASE}/incidents/${incident.incidentId}/hint`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ user_question: 'איזו פעולה כדאי לי לעשות הבא?' }),
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...getLanguageHeader() },
+        body: JSON.stringify({ user_question: t('simulation.defaultHintQuestion') }),
       })
       if (!res.ok) throw new Error('Failed to get hint')
       const data = await res.json()
       playChime()
       setToastVariant('info')
-      setToastMessage(`AI Mentor: ${data.hint}`)
+      setToastMessage(t('simulation.toast.mentorHint', { hint: data.hint }))
       setTimeout(() => setToastMessage(null), 5000)
     } catch (error) {
       console.error('Failed to get hint:', error)
       playError()
       setToastVariant('danger')
-      setToastMessage('לא הצלחתי לקבל רמז - בדוק שהחיבור לשרת פועל')
+      setToastMessage(t('simulation.toast.hintError'))
       setTimeout(() => setToastMessage(null), 3000)
     }
   }
@@ -200,7 +203,7 @@ export default function SimulationPage() {
   if (!incident) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
-        <Spinner label="Loading incident..." />
+        <Spinner label={t('simulation.loadingIncident')} />
       </div>
     )
   }
@@ -266,7 +269,7 @@ export default function SimulationPage() {
       >
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent-danger status-active" />
-          <span className="stamp !border-accent-danger !text-accent-danger !py-0 !px-1.5 text-[9px]">Breaking</span>
+          <span className="stamp !border-accent-danger !text-accent-danger !py-0 !px-1.5 text-[9px]">{t('simulation.breaking')}</span>
           <span className="truncate text-[10px] uppercase tracking-[0.15em] text-text-secondary">{scenario.title}</span>
         </div>
         <p className="font-display briefing-glow mt-1 line-clamp-2 text-xs text-text-primary sm:text-sm">
@@ -282,7 +285,7 @@ export default function SimulationPage() {
         style={{ writingMode: 'vertical-rl' }}
         className="absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded-l border border-r-0 border-border-default bg-bg-primary/85 px-2 py-4 text-[10px] uppercase tracking-wide text-accent-success hover:bg-bg-secondary"
       >
-        {caseFileOpen ? 'Close' : 'Case File'}
+        {caseFileOpen ? t('simulation.closeDrawer') : t('simulation.caseFile')}
       </button>
 
       <div
@@ -291,7 +294,7 @@ export default function SimulationPage() {
         }`}
       >
         <div className="mb-4">
-          <h2 className="mb-2 text-sm uppercase text-text-secondary">Event Timeline</h2>
+          <h2 className="mb-2 text-sm uppercase text-text-secondary">{t('simulation.eventTimeline')}</h2>
           <ScreenBezel glow="info">
             <div className="p-4">
               <EventTimeline steps={timeline} />
@@ -301,11 +304,11 @@ export default function SimulationPage() {
 
         <div className="cork-board mb-4 rounded p-4">
           <h2 className="mb-3 inline-block rounded bg-bg-primary/70 px-2 py-1 font-display text-sm uppercase tracking-wide text-paper">
-            Evidence Board
+            {t('simulation.evidenceBoard')}
           </h2>
           <div className="space-y-4 pt-1">
             {evidence.length === 0 && (
-              <p className="rounded bg-black/30 p-2 text-xs text-paper">No evidence revealed yet. Investigate to find clues.</p>
+              <p className="rounded bg-black/30 p-2 text-xs text-paper">{t('simulation.noEvidence')}</p>
             )}
             {evidence.map((item) => (
               <EvidenceCard
@@ -321,7 +324,7 @@ export default function SimulationPage() {
         </div>
 
         <div>
-          <h2 className="mb-2 text-sm uppercase text-text-secondary">Logs</h2>
+          <h2 className="mb-2 text-sm uppercase text-text-secondary">{t('simulation.logs')}</h2>
           <ScreenBezel glow="success">
             <LogViewer logs={mockLogs} />
           </ScreenBezel>
@@ -337,13 +340,13 @@ export default function SimulationPage() {
       >
         <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-accent-info">
           <IconBulb className="shrink-0" />
-          Ask Your Mentor for a Hint
+          {t('simulation.askMentor')}
         </p>
-        <p className="mt-1 text-[11px] text-text-secondary">Stuck? Get a nudge — never the answer itself.</p>
+        <p className="mt-1 text-[11px] text-text-secondary">{t('simulation.askMentorSub')}</p>
       </button>
 
       <div className="absolute bottom-4 right-4 z-20">
-        <ActionButton label="Complete Simulation" onClick={handleComplete} />
+        <ActionButton label={t('simulation.completeSimulation')} onClick={handleComplete} />
       </div>
 
       {toastMessage && (

@@ -1,0 +1,181 @@
+{
+  "common": {
+    "back": "→ חזרה",
+    "home": "בית",
+    "close": "סגור"
+  },
+  "liveStatusBar": {
+    "live": "סימולציה חיה",
+    "subtitle": "// קונסולת ההגנה הסייברית של IRIS",
+    "online": "המערכת פעילה",
+    "muteSound": "השתק צלילי קונסולה",
+    "unmuteSound": "בטל השתקת צלילי קונסולה"
+  },
+  "language": {
+    "toggle": "EN"
+  },
+  "boot": {
+    "subtitle": "קונסולת הגנה סייברית",
+    "accessGranted": "הגישה אושרה",
+    "skipHint": "לחץ או הקש מקש כלשהו כדי לדלג",
+    "lines": {
+      "core": "שירותי ליבה",
+      "uplink": "ערוץ מאובטח",
+      "threatFeed": "עדכון מודיעין איומים",
+      "sensorArray": "מערך חיישני עמדה"
+    }
+  },
+  "home": {
+    "logout": "התנתקות",
+    "incomingTransmission": "// שידור נכנס",
+    "subtitle": "פריצה מתרחשת ברגעים אלה. אתה האנליסט שבתורנות הלילה —",
+    "subtitleHighlight": "כל החלטה משנה את מה שקורה בהמשך.",
+    "badgeDuration": "כ-15 דקות",
+    "badgeAi": "מבוסס בינה מלאכותית",
+    "badgeTraining": "אימון SOC",
+    "openCaseFile": "פתח תיק אירוע",
+    "caseFile": "תיק אירוע",
+    "myHistory": "ההיסטוריה שלי",
+    "instructorDashboard": "לוח בקרה למדריך"
+  },
+  "login": {
+    "restrictedAccess": "גישה מוגבלת",
+    "subtitle": "מסוף גישה לתיקי אירועים",
+    "requiredFields": "יש להזין שם קוד סוכן וסיסמה",
+    "usernameLabel": "שם קוד סוכן",
+    "passwordLabel": "סיסמה",
+    "usernamePlaceholder": "שם_קוד_סוכן",
+    "processing": "מעבד…",
+    "createAccount": "צור חשבון",
+    "accessSystem": "כניסה למערכת",
+    "alreadyHaveAccess": "כבר יש לך גישה?",
+    "needCredentials": "צריך פרטי גישה?",
+    "returnToLogin": "חזרה להתחברות",
+    "registerNewAccount": "רישום סוכן חדש",
+    "loginFailed": "ההתחברות נכשלה",
+    "registrationFailed": "הרישום נכשל"
+  },
+  "briefing": {
+    "missionBriefing": "▸ תדריך משימה",
+    "difficulty": "רמת קושי: {{difficulty}}",
+    "yourObjectives": "היעדים שלך",
+    "disclaimer": "אתה בוחר מה לחקור ובאיזה סדר — ההחלטות שלך קובעות כיצד האירוע מתפתח ועד כמה הוא יחמיר. אין מסלול נכון יחיד, אבל חלק מהבחירות עולות לך יותר זמן מאחרות.",
+    "beginSimulation": "התחל סימולציה ▶",
+    "establishingConnection": "מבסס חיבור מאובטח...",
+    "failedToStart": "הפעלת הסימולציה נכשלה"
+  },
+  "simulation": {
+    "loadingIncident": "טוען אירוע...",
+    "breaking": "מבזק",
+    "eventTimeline": "ציר הזמן של האירוע",
+    "evidenceBoard": "לוח ראיות",
+    "noEvidence": "טרם נחשפו ראיות. חקור כדי למצוא רמזים.",
+    "logs": "יומני מערכת",
+    "completeSimulation": "סיים סימולציה",
+    "askMentor": "בקש רמז מהמנטור",
+    "askMentorSub": "תקוע? קבל דחיפה בכיוון הנכון — לעולם לא את התשובה עצמה.",
+    "caseFile": "תיק אירוע",
+    "closeDrawer": "סגור",
+    "defaultHintQuestion": "איזו פעולה כדאי לי לעשות הבא?",
+    "toast": {
+      "investigateDone": "{{label}}: החקירה הושלמה",
+      "actionTaken": "{{label}}: הפעולה בוצעה",
+      "investigationFailed": "נכשל: {{error}}",
+      "decisionFailed": "נכשל: {{error}}",
+      "idleNudge": "מפקד: לא זוהתה פעילות. האירוע ממשיך להתפתח — המשך לחקור או התייעץ עם המנטור.",
+      "mentorHint": "מנטור AI: {{hint}}",
+      "hintError": "לא הצלחתי לקבל רמז — בדוק שהחיבור לשרת פועל",
+      "severityEscalated": "רמת החומרה עלתה ל-{{severity}}",
+      "failedToStart": "הפעלת הסימולציה נכשלה: {{error}}"
+    }
+  },
+  "logViewer": {
+    "time": "זמן",
+    "source": "מקור",
+    "type": "סוג",
+    "details": "פרטים"
+  },
+  "evidenceCard": {
+    "revealedAtStep": "נחשף בשלב {{step}} | {{timestamp}}"
+  },
+  "evidenceView": {
+    "from": "מאת",
+    "to": "אל",
+    "date": "תאריך",
+    "subject": "נושא",
+    "doNotClick": "אין ללחוץ -- מוצג לצורך חקירה בלבד"
+  },
+  "report": {
+    "generatingReport": "מפיק דו\"ח...",
+    "failedToGenerate": "הפקת הדו\"ח נכשלה",
+    "retry": "נסה שוב",
+    "retrying": "מנסה שוב...",
+    "noReportData": "אין נתוני דו\"ח זמינים.",
+    "feedback": "משוב",
+    "nextSimulation": "סימולציה הבאה",
+    "home": "בית"
+  },
+  "scoreboard": {
+    "simulationComplete": "הסימולציה הושלמה",
+    "finalScore": "ציון סופי",
+    "performanceBreakdown": "פירוט ביצועים",
+    "detection": "זיהוי",
+    "decision": "קבלת החלטות",
+    "response": "תגובה",
+    "outcome": {
+      "contained": {
+        "label": "הפריצה נבלמה",
+        "detail": "זיהית ועצרת את התוקף לפני שנגרם נזק ממשי."
+      },
+      "contained_with_damage": {
+        "label": "הפריצה נבלמה — אך נגרם נזק",
+        "detail": "התוקף נעצר, אך לא לפני שגרם לנזק שתגובה מהירה יותר הייתה יכולה למנוע."
+      },
+      "breach_successful": {
+        "label": "הפריצה לא נבלמה",
+        "detail": "התוקף השלים את מטרתו. האירוע לא טופל בזמן."
+      }
+    }
+  },
+  "postMortem": {
+    "title": "ניתוח שלבי הפעולה",
+    "step": "שלב",
+    "idealChain": "השרשרת האידיאלית",
+    "yourChain": "השרשרת שלך",
+    "status": "סטטוס",
+    "correct": "נכון",
+    "wrong": "שגוי",
+    "missing": "חסר",
+    "none": "(אין)",
+    "notDone": "(לא בוצע)"
+  },
+  "history": {
+    "title": "היסטוריית סימולציות",
+    "backToHome": "→ חזרה לדף הבית",
+    "loadingHistory": "טוען היסטוריה...",
+    "noHistory": "אין עדיין היסטוריית סימולציות",
+    "unknownScenario": "מבצע כניסה שקטה"
+  },
+  "instructor": {
+    "back": "→ חזרה",
+    "title": "לוח בקרה למדריך",
+    "subtitle": "מעקב אחר התקדמות וביצועי הסטודנטים",
+    "loadingDashboard": "טוען לוח בקרה...",
+    "failedToLoad": "טעינת לוח הבקרה נכשלה",
+    "noData": "אין נתונים זמינים",
+    "totalSessions": "סה\"כ הרצות",
+    "averageScore": "ציון ממוצע",
+    "performanceByScenario": "ביצועים לפי תרחיש",
+    "noSessionData": "אין עדיין נתוני הרצות",
+    "scenario": "תרחיש",
+    "sessions": "הרצות",
+    "avgScore": "ציון ממוצע",
+    "silentLogin": "מבצע כניסה שקטה",
+    "insiderThreat": "איום פנימי"
+  },
+  "timer": {
+    "elapsedTooltip": "זמן שחלף מאז דיווח האירוע",
+    "breachTooltip": "מועד הפריצה חלף -- התוקף השלים את מטרתו",
+    "breach": "פריצה"
+  }
+}

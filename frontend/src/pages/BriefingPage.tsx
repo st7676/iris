@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import Spinner from '../components/common/Spinner'
 import { useSimulationStore } from '../hooks/useSimulation'
 import { DEFAULT_SCENARIO_ID, getScenario } from '../lib/scenarios'
@@ -13,6 +14,7 @@ export default function BriefingPage() {
   const navigate = useNavigate()
   const { scenarioId = DEFAULT_SCENARIO_ID } = useParams<{ scenarioId: string }>()
   const startSimulation = useSimulationStore((state) => state.startSimulation)
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,7 +27,7 @@ export default function BriefingPage() {
       await startSimulation(scenario.id)
       navigate('/simulation', { state: { scenarioId: scenario.id } })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start simulation')
+      setError(err instanceof Error ? err.message : t('briefing.failedToStart'))
       setLoading(false)
     }
   }
@@ -33,7 +35,7 @@ export default function BriefingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-bg-primary text-text-primary p-8 flex items-center justify-center">
-        <Spinner label="Establishing secure connection..." />
+        <Spinner label={t('briefing.establishingConnection')} />
       </div>
     )
   }
@@ -43,13 +45,13 @@ export default function BriefingPage() {
       <div className="mx-auto max-w-2xl border border-border-default bg-bg-secondary rounded-lg p-8 space-y-6">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-widest text-accent-primary">
-            ▸ Mission Briefing
+            {t('briefing.missionBriefing')}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold">
             {scenario.title}
           </h1>
           <p className="text-xs uppercase tracking-wide text-text-muted">
-            Difficulty: {scenario.difficulty}
+            {t('briefing.difficulty', { difficulty: scenario.difficulty })}
           </p>
         </div>
 
@@ -59,7 +61,7 @@ export default function BriefingPage() {
 
         <div className="border-t border-border-default pt-6 space-y-4">
           <h2 className="text-xs uppercase tracking-widest text-accent-primary">
-            Your Objectives
+            {t('briefing.yourObjectives')}
           </h2>
           <ul className="space-y-3">
             {scenario.objectives.map((objective, index) => (
@@ -74,9 +76,7 @@ export default function BriefingPage() {
         </div>
 
         <p className="text-xs text-text-muted italic">
-          You choose what to investigate and in what order — your decisions determine how
-          the incident evolves and how severe it gets. There's no single right path, but
-          some choices cost you more time than others.
+          {t('briefing.disclaimer')}
         </p>
 
         {error && (
@@ -90,13 +90,13 @@ export default function BriefingPage() {
             onClick={() => navigate('/')}
             className="border border-border-default text-text-secondary py-2 px-4 rounded uppercase tracking-wide text-xs hover:border-accent-primary hover:text-accent-primary transition-all"
           >
-            ← Back
+            {t('common.back')}
           </button>
           <button
             onClick={handleBegin}
             className="flex-1 bg-accent-primary text-bg-primary py-2 px-6 rounded uppercase tracking-widest text-sm font-bold hover:bg-accent-primary/90 transition-all"
           >
-            Begin Simulation ▶
+            {t('briefing.beginSimulation')}
           </button>
         </div>
       </div>
